@@ -1,0 +1,15 @@
+[tool.pdm]
+
+[project]
+name = ""
+version = ""
+description = ""
+authors = [
+    {name = "", email = ""},
+]
+dependencies = [
+    "psycopg2-binary>=2.9.6",
+    "peewee>=3.16.0",
+]
+requires-python = ">=3.11"
+license = {text = "MIT"}
