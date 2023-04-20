@@ -10,11 +10,13 @@ db = PostgresqlDatabase(
 
 def main():
     db.connect()
-    db.create_tables([TestModel])
-    TestModel.create(name="Test")
-    # Here we run the server.
-    while True:
-        pass
+    db.create_tables([Data, Logs, Config, Loss])
+    # while True:
+    #     pass
+
+    # add config
+    Config.create(config_name="config2", id_protocol=1, transport_layer="TCP")
+
 
     
 if __name__ == "__main__":
