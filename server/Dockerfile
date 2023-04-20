@@ -4,12 +4,12 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-COPY . /app
+COPY pdm.lock ./
+COPY pyproject.toml ./
 
 RUN pip install pdm==2.5.2
+RUN pdm install 
 
-COPY ./pdm.lock /app
-COPY ./pyproject.toml /app
+COPY . .
 
-RUN pdm install
 
