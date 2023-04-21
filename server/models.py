@@ -1,5 +1,13 @@
 from peewee import *
-from main_server import db
+import os
+
+db = PostgresqlDatabase(
+    os.environ.get("POSTGRES_DB"),
+    user=os.environ.get("POSTGRES_USER"),
+    password=os.environ.get("POSTGRES_PASSWORD"),
+    host=os.environ.get("POSTGRES_HOST"),
+    port=os.environ.get("POSTGRES_PORT"))
+
 
 class Data(Model):
     name = CharField()
@@ -27,3 +35,12 @@ class Loss(Model):
 
     class Meta:
         database = db
+
+
+def db_init():
+    db.connect()
+    db.create_tables([Data, Logs, Config, Loss])
+
+def db_close():
+    db.close()
+
