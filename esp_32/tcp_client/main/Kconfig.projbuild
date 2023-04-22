@@ -28,10 +28,17 @@ menu "Example Configuration"
         help
             The example will connect to this IPV6 address.
 
-    config EXAMPLE_PORT
-        int "Port"
+    config TCP_PORT
+        int "tcp port"
         range 0 65535
-        default 3333
+        default 4200
+        help
+            The remote port to which the client example will connect to.
+
+    config UDP_PORT
+        int "udp port"
+        range 0 65535
+        default 4201
         help
             The remote port to which the client example will connect to.
 

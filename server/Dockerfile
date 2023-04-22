@@ -1,15 +1,16 @@
-FROM python:3.11-slim
+FROM python:3.11.3
 
 ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-COPY pdm.lock ./
-COPY pyproject.toml ./
+RUN pip install pdm==2.4.9
 
-RUN pip install pdm==2.5.2
-RUN pdm install 
+COPY pyproject.toml /app/.
+COPY pdm.lock /app/.
 
+RUN pdm install
 COPY . .
+
 
 

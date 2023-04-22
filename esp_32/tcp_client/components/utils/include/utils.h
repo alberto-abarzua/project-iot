@@ -7,15 +7,17 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
 #include "esp_log.h"
 #include "esp_netif.h"
-#include "sdkconfig.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
 
 #define HOST_IP_ADDR CONFIG_EXAMPLE_IPV4_ADDR
-
-#define PORT CONFIG_EXAMPLE_PORT
+#define TCP_PORT CONFIG_TCP_PORT
+#define UDP_PORT CONFIG_UDP_PORT
 #define TAG "ESP_32"
+
 #pragma pack(push, 1)
 typedef struct hd_01234 {
     int16_t id_device;
@@ -61,7 +63,7 @@ typedef struct ds_p4 {
 #pragma pack(pop)
 
 void tcp_client(void);
-int send_packet_protocol0(int sock);
-int send_pakcet(int sock, int protocol_id);
-
+int send_pakcet_tcp(int sock, int protocol_id);
+int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id);
+void udp_client(void);
 #endif  // utils_h

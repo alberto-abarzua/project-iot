@@ -22,5 +22,5 @@ void app_main(void)
      * examples/protocols/README.md for more information about this function.
      */
     ESP_ERROR_CHECK(example_connect());
-    tcp_client();
+    udp_client();
 }

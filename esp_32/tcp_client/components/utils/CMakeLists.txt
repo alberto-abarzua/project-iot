@@ -1,3 +1,3 @@
-idf_component_register(SRCS "utils.c" "tcp_client.c"
+idf_component_register(SRCS "utils.c" "clients.c"
                        INCLUDE_DIRS "include"
                        REQUIRES esp_netif)

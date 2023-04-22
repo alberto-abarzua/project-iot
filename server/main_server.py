@@ -6,7 +6,7 @@ from servers import *
 
 
 def main():
-    server_echo_tcp()
+    server_udp()
     
     
 
