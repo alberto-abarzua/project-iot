@@ -1,10 +1,12 @@
 import os
-from models import *
+
+from servers import *
+
+
 
 
 def main():
-    while True:
-        pass
+    server_echo_tcp()
     
     
 
