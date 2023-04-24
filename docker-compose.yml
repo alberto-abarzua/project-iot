@@ -4,30 +4,48 @@ services:
   server:
     build: ./server
     volumes:
-      - ./server:/app/
+      - ./server/src/:/app/src/
       - ./server/pdm.lock:/app/pdm.lock
       - ./server/pyproject.toml:/app/pyproject.toml
 
-    command: pdm run python main_server.py
+    command: pdm run python src/main_server.py
     depends_on:
       - db
-    env_file:
-      - .env.template
+    environment:
+      - POSTGRES_NAME
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_PORT
+      - POSTGRES_HOST
+      - SERVER_PORT_TCP
+      - SERVER_PORT_UDP
     ports:
-      - 4200:4200
-      - 4201:4201/udp
-
+      - ${SERVER_PORT_TCP}:${SERVER_PORT_TCP}
+      - ${SERVER_PORT_UDP}:${SERVER_PORT_UDP}/udp
 
   db:
     image: postgres:15.2-alpine
-    restart: always
-    env_file:
-      - .env.template
+    environment:
+      - POSTGRES_NAME
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
     volumes:
       - ./db:/var/lib/postgresql/data
 
   adminer:
     image: adminer
-    restart: always
     ports:
       - 8080:8080
+  esp-idf:
+    image: espressif/idf:release-v4.3
+    volumes:
+      - ./esp_32/:/workspace
+    environment:
+      - ESP_DEVICE
+    devices:
+      - "${ESP_DEVICE}:${ESP_DEVICE}"
+    command: /bin/bash -c "cd /workspace && idf.py -p ${ESP_DEVICE} monitor"
+    tty: true
+    stop_signal: SIGINT
