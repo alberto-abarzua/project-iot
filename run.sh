@@ -19,24 +19,30 @@ flash_esp32() {
 
 # Function to clean up on exit
 cleanup() {
-  echo "Cleaning up..."
-  docker compose down --remove-orphans --timeout 5
+    echo "Cleaning up..."
+    docker compose down --remove-orphans --timeout 5
 }
 
 # Handle ctrl+c (SIGINT)
 trap cleanup INT
 
-
 # clean up any existing containers
 docker compose down --remove-orphans
 # Run desired services based on the .env variable
+echo "$1"
 if [ "$TARGET_SERVICES" = "dev" ]; then
-    flash_esp32
-    if [ $? -eq 1 ]; then
-        echo "Exiting due to flash failure."
-        exit 1
+
+    if [ "$1" = "menuconfig" ]; then
+        echo "runing config"
+        docker compose run esp-idf /bin/bash -c "cd /workspace && idf.py menuconfig"
+    else
+        flash_esp32
+        if [ $? -eq 1 ]; then
+            echo "Exiting due to flash failure."
+            exit 1
+        fi
+        docker compose up --build server db adminer esp-idf
     fi
-    docker compose up --build server db adminer esp-idf
 elif [ "$TARGET_SERVICES" = "deploy_no_adminer" ]; then
     docker compose up --build server db
 elif [ "$TARGET_SERVICES" = "deploy" ]; then
