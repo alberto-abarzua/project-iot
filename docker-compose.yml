@@ -7,7 +7,6 @@ services:
       - ./server/src/:/app/src/
       - ./server/pdm.lock:/app/pdm.lock
       - ./server/pyproject.toml:/app/pyproject.toml
-
     command: pdm run python src/main_server.py
     depends_on:
       - db
@@ -32,7 +31,7 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_DB
     volumes:
-      - ./db:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
 
   adminer:
     image: adminer
@@ -49,3 +48,6 @@ services:
     command: /bin/bash -c "cd /workspace && idf.py -p ${ESP_DEVICE} monitor"
     tty: true
     stop_signal: SIGINT
+
+volumes:
+  postgres_data:
