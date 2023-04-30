@@ -34,7 +34,12 @@ menu "Example Configuration"
         default 4200
         help
             The remote port to which the client example will connect to.
-
+    config HANDSHAKE_PORT
+        int "handshake port"
+        range 0 65535
+        default 4199
+        help
+            The remote port to which the client example will connect to.
     config UDP_PORT
         int "udp port"
         range 0 65535

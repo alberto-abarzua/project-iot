@@ -11,12 +11,21 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "freertos/task.h"
+#include "lwip/dns.h"
+#include "lwip/netdb.h"
+#include "lwip/apps/sntp.h"
 #include "sdkconfig.h"
-
+#define NTP_SERVER "pool.ntp.org"
 #define HOST_IP_ADDR CONFIG_EXAMPLE_IPV4_ADDR
 #define TCP_PORT CONFIG_TCP_PORT
 #define UDP_PORT CONFIG_UDP_PORT
+#define HANDSHAKE_PORT CONFIG_HANDSHAKE_PORT
+#define TCP_TIMEOUT 1000
+#define UDP_TIMEOUT 1000
 #define TAG "ESP_32"
+
+
+uint64_t custom_epoch_global;
 
 #pragma pack(push, 1)
 typedef struct hd_01234 {
@@ -62,8 +71,17 @@ typedef struct ds_p4 {
 } ds_p4_t;
 #pragma pack(pop)
 
-void tcp_client(void);
+typedef struct config {
+    char trans_layer;  // U for UDP, T for TCP
+    char protocol_id;  // 0,1,2,3,4
+} config_t;
+
+void tcp_client(int protocol_id);
+void udp_client(int protocol_id);
 int send_pakcet_tcp(int sock, int protocol_id);
 int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id);
-void udp_client(void);
+int handshake(config_t *, char, uint16_t);
+void initialize_sntp();
+void wait_for_sntp_sync();
+uint64_t timestamp_milis();
 #endif  // utils_h

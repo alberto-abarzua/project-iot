@@ -31,10 +31,12 @@ docker compose down --remove-orphans
 # Run desired services based on the .env variable
 echo "$1"
 if [ "$TARGET_SERVICES" = "dev" ]; then
-
     if [ "$1" = "menuconfig" ]; then
         echo "runing config"
         docker compose run esp-idf /bin/bash -c "cd /workspace && idf.py menuconfig"
+    elif [ "$1" = "monitor" ]; then
+        echo "runing monitor"
+        docker compose up --build server db adminer esp-idf
     else
         flash_esp32
         if [ $? -eq 1 ]; then

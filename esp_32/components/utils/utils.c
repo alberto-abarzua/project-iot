@@ -2,6 +2,59 @@
 
 #include <sys/socket.h>
 
+void initialize_sntp(void) {
+    ESP_LOGI(TAG, "Initializing SNTP");
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, NTP_SERVER);
+    sntp_init();
+}
+
+void wait_for_sntp_sync() {
+    time_t now = 0;
+    struct tm timeinfo = {0};
+    int retry = 0;
+    const int retry_count = 10;
+
+    while (timeinfo.tm_year < (2016 - 1900) && ++retry < retry_count) {
+        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry,
+                 retry_count);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        time(&now);
+        localtime_r(&now, &timeinfo);
+    }
+}
+
+uint32_t time_now() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec;
+}
+
+uint64_t timestamp_milis() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
+uint32_t get_custom_millisecond_timestamp() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    // Calculate the number of seconds since the Unix epoch (1970)
+    int64_t seconds_since_unix_epoch = (int64_t)tv.tv_sec;
+
+    // Calculate the number of seconds since the custom epoch (2020)
+    int64_t seconds_since_custom_epoch =
+        seconds_since_unix_epoch - (int64_t)custom_epoch_global;
+
+    // Convert to milliseconds
+    uint64_t milliseconds_since_custom_epoch =
+        (uint64_t)(seconds_since_custom_epoch * 1000 + tv.tv_usec / 1000);
+
+    // Truncate to a 4-byte integer
+    return (uint32_t)milliseconds_since_custom_epoch;
+}
+
 char *create_packet_protocol0(int *a_packet_size) {
     int packet_size = 2 * sizeof(char) + 1 * sizeof(int32_t);
     *a_packet_size = packet_size + sizeof(hd_01234_t);
@@ -10,7 +63,7 @@ char *create_packet_protocol0(int *a_packet_size) {
     ds_p0123_t packet;
     packet.data1 = '1';
     packet.data2 = '1';
-    packet.data3 = 2147483647;
+    packet.data3 = get_custom_millisecond_timestamp();
 
     char *buffer = (char *)malloc(*a_packet_size);
     memcpy(buffer, &header, sizeof(hd_01234_t));
@@ -24,9 +77,10 @@ char *create_packet_protocol1(int *a_packet_size) {
     hd_01234_t header = {(int16_t)23, "123456", 0, 1,
                          (int16_t)*a_packet_size - sizeof(hd_01234_t)};
     ds_p0123_t packet;
+
     packet.data1 = '1';
     packet.data2 = '1';
-    packet.data3 = 2147483647;
+    packet.data3 = get_custom_millisecond_timestamp();
     packet.data4 = '1';
     packet.data5 = 2147483647;
     packet.data6 = '1';
@@ -46,7 +100,7 @@ char *create_packet_protocol2(int *a_packet_size) {
     ds_p0123_t packet;
     packet.data1 = '1';
     packet.data2 = '1';
-    packet.data3 = 2147483647;
+    packet.data3 = get_custom_millisecond_timestamp();
     packet.data4 = '1';
     packet.data5 = 2147483647;
     packet.data6 = '1';
@@ -68,7 +122,7 @@ char *create_packet_protocol3(int *a_packet_size) {
     ds_p0123_t packet;
     packet.data1 = '1';
     packet.data2 = '1';
-    packet.data3 = 2147483647;
+    packet.data3 = get_custom_millisecond_timestamp();
     packet.data4 = '1';
     packet.data5 = 2147483647;
     packet.data6 = '1';
@@ -95,7 +149,7 @@ char *create_packet_protocol4(int *a_packet_size) {
     ds_p4_t packet;
     packet.data1 = '1';
     packet.data2 = '1';
-    packet.data3 = 2147483647;
+    packet.data3 = get_custom_millisecond_timestamp();
     packet.data4 = '1';
     packet.data5 = 2147483647;
     packet.data6 = '1';
@@ -144,14 +198,13 @@ char *create_packet(int protocol_id, int *packet_size) {
 
 int min(int a, int b) { return (a < b) ? a : b; }
 
-// int send_chunks_tcp(int sock, char *buf, int size, int total) {
-//     int err = -1;
-//     for (int i = 0; i < total; i += size) {
-//         err = send(sock, buf + i, min(size, total - i), 0);
-//         if (err < 0) return err;
-//     }
-//     return err;
-// }
+/* *****************************************************************************
+ *                                                                             *
+ *  ***********************    TCP   ***************************    *
+ *                                                                             *
+ *  *************** <><><><><><><><><><><><><><><><><><><><> *************    *
+ *                                                                             *
+ *****************************************************************************/
 
 int send_chunks_tcp(int sock, const char *buf, int size, int total) {
     if (size <= 0) {
@@ -190,21 +243,26 @@ int send_pakcet_tcp(int sock, int protocol_id) {
     return err;
 }
 
-/**
- * --------------------------------------------------
- *                        UDP
- * --------------------------------------------------
- */
+/* *****************************************************************************
+ *                                                                             *
+ *  ***********************    UDP    ***************************    *
+ *                                                                             *
+ *  *************** <><><><><><><><><><><><><><><><><><><><> *************    *
+ *                                                                             *
+ *****************************************************************************/
+
 int send_chunks_udp(int sock, const char *buf, int size, int total,
                     struct sockaddr_in *addr) {
     if (size <= 0) {
         return -1;  // Invalid chunk size
     }
-
     int bytes_sent = 0;
     while (bytes_sent < total) {
         int remaining_bytes = total - bytes_sent;
         int chunk_size = remaining_bytes < size ? remaining_bytes : size;
+        if (bytes_sent == 0) {
+            chunk_size = 12;
+        }
         const char *chunk_ptr = buf + bytes_sent;
 
         int ret = sendto(sock, chunk_ptr, chunk_size, 0,
@@ -228,6 +286,6 @@ int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id) {
              ntohs(in_addr->sin_port));
     int err = send_chunks_udp(sock, buffer, 1024, size_to_send, in_addr);
     free(buffer);
-    ESP_LOGI(TAG, "Packe Sent!");
+    ESP_LOGI(TAG, "Packee Sen? %d", err);
     return err;
 }
