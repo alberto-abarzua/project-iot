@@ -39,10 +39,12 @@ services:
     image: adminer
     ports:
       - 8080:8080
-  esp-idf:
-    image: espressif/idf:release-v4.3
     volumes:
-      - ./esp_32/:/workspace
+      - adminer_sessions:/sessions
+  esp-idf:
+    build: ./esp-idf 
+    volumes:
+      - .esp-idf/project/:/workspace
     environment:
       - ESP_DEVICE
     devices:
@@ -53,3 +55,4 @@ services:
 
 volumes:
   db_data:
+  adminer_sessions:

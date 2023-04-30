@@ -2,7 +2,7 @@
 #define utils_h
 #include <arpa/inet.h>
 #include <errno.h>
-#include <netdb.h>  // struct addrinfo
+#include <netdb.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -11,10 +11,11 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "freertos/task.h"
+#include "lwip/apps/sntp.h"
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
-#include "lwip/apps/sntp.h"
 #include "sdkconfig.h"
+
 #define NTP_SERVER "pool.ntp.org"
 #define HOST_IP_ADDR CONFIG_EXAMPLE_IPV4_ADDR
 #define TCP_PORT CONFIG_TCP_PORT
@@ -24,8 +25,8 @@
 #define UDP_TIMEOUT 1000
 #define TAG "ESP_32"
 
-
-uint64_t custom_epoch_global;
+uint16_t HEADER_LENGTH;
+uint64_t CUSTOM_GLOBAL_EPOCH_MICROSECONDS;
 
 #pragma pack(push, 1)
 typedef struct hd_01234 {
@@ -83,5 +84,7 @@ int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id);
 int handshake(config_t *, char, uint16_t);
 void initialize_sntp();
 void wait_for_sntp_sync();
-uint64_t timestamp_milis();
+void init_global_vars();
+uint32_t get_timestamp_from_custom_epoch(void);
+uint64_t current_unix_timestamp();
 #endif  // utils_h

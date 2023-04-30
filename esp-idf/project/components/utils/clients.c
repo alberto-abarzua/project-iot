@@ -1,12 +1,20 @@
 #include "utils.h"
 
-int handshake(config_t *config, char restart,uint16_t device_id) {
+/* *****************************************************************************
+ *                                                                             *
+ *  ***********************    Handshake   ***************************    *
+ *                                                                             *
+ *  *************** <><><><><><><><><><><><><><><><><><><><> *************    *
+ *                                                                             *
+ *****************************************************************************/
+
+int handshake(config_t *config, char restart, uint16_t device_id) {
+    // Socket craetion
     struct sockaddr_in dest_addr;
     int err = -1;
     inet_pton(AF_INET, HOST_IP_ADDR, &dest_addr.sin_addr);
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(HANDSHAKE_PORT);
-    // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
     if (sock < 0) {
@@ -24,22 +32,27 @@ int handshake(config_t *config, char restart,uint16_t device_id) {
         return err;
     }
     ESP_LOGI(TAG, "Successfully connected Handshake Socket");
-    char buf_to_send[256];
-    const char *handshake_init = "hb";
-    memcpy(buf_to_send, handshake_init, strlen(handshake_init));
-    buf_to_send[strlen(handshake_init)] = restart;
-    memcpy(buf_to_send + strlen(handshake_init) + 1, &device_id, sizeof(uint16_t));
-    uint64_t custom_epoch = timestamp_milis();
-    custom_epoch_global = custom_epoch;
-    memcpy(buf_to_send + strlen(handshake_init) + 1 + sizeof(uint16_t), &custom_epoch, sizeof(uint64_t));
 
-    err = send(sock, buf_to_send, strlen(buf_to_send) + 1 + sizeof(uint16_t), 0);
+    // Send handshake initiation
+    char buf_to_send[1024];
+    const char *handshake_init = "hb";
+    int offset = 0;
+    memcpy(buf_to_send, handshake_init, strlen(handshake_init));
+    offset += strlen(handshake_init);
+    buf_to_send[strlen(handshake_init)] = restart;
+    offset += 1;
+    memcpy(buf_to_send + offset, &device_id, sizeof(uint16_t));
+    offset += sizeof(uint16_t);
+    memcpy(buf_to_send + offset, &CUSTOM_GLOBAL_EPOCH_MICROSECONDS,
+           sizeof(uint64_t));
+    offset += sizeof(uint64_t);
+    err = send(sock, buf_to_send, offset, 0);
     if (err < 0) {
         ESP_LOGE(TAG, "Error occurred during sending: errno %s\n",
                  strerror(errno));
         return err;
     }
-    ESP_LOGI(TAG, "helo bro sent");
+    ESP_LOGI(TAG, "Handshake initiation sent");
     // Receive data back
     char rx_buffer[128];
     int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
@@ -54,15 +67,14 @@ int handshake(config_t *config, char restart,uint16_t device_id) {
     ESP_LOGI(TAG, "bro sent me balues trans_layer %c protocol_id %d\n",
              config->trans_layer, (int)config->protocol_id);
     // Data received
-    // send hello bro
-    char *ok_bro = "ok bro";
+    char *ok_bro = "ob";  // Conclude handshake
     err = send(sock, ok_bro, strlen(ok_bro), 0);
     if (err < 0) {
         ESP_LOGE(TAG, "Error occurred during sending: errno %s\n",
                  strerror(errno));
         return err;
     }
-    ESP_LOGI(TAG, "ok bro sent");
+    ESP_LOGI(TAG, "HandshakeConcluded");
     close(sock);
     return 0;
 }

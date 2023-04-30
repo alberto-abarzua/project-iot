@@ -26,14 +26,19 @@ def start_handshake():
     data = client_socket.recv(1024)
     if b"hb" in data:
         id_device = data[3:5]
-        custom_epoch = data[5:5+4]
+        custom_epoch = data[5:5+8]
         # convert to int
-        id_device = int.from_bytes(id_device, byteorder="big")
-        custom_epoch = int.from_bytes(custom_epoch, byteorder="big")
+        id_device = int.from_bytes(id_device, byteorder="little")
+        custom_epoch_millis = int.from_bytes(custom_epoch, byteorder='little')
+        print("Handshake received from device", id_device, custom_epoch_millis)
+
+        seconds, milliseconds = divmod(custom_epoch_millis, 1000)
+        custom_epoch = datetime.datetime.utcfromtimestamp(seconds)
+        custom_epoch = custom_epoch.replace(microsecond=milliseconds)
+
         config = get_default_config()
         config.last_access = datetime.datetime.now()
         config.save()
-
         to_send_text = config.transport_layer + str(config.id_protocol)
         to_send_bytes = to_send_text.encode('utf-8')
         print("Sending config to bro", to_send_bytes, len(to_send_bytes))
@@ -41,7 +46,7 @@ def start_handshake():
 
     # wait for ok bro
     data = client_socket.recv(1024)
-    if data == b'ok bro':
+    if data == b'ob':
         print("Handshake successful")
         # log
         print("Saving log")
@@ -80,11 +85,11 @@ def save_to_db(headers, body):
     new_entry.message_length = message_length
     new_entry.val = val
     new_entry.batt_level = batt_level
-    timestamp = custom_epoch.timestamp() + timestamp
-    # convert timestamp int to datetime timestamp
-    timestamp = datetime.datetime.fromtimestamp(timestamp)
+    timestamp+=custom_epoch.timestamp()*1000
+    seconds, milliseconds = divmod(timestamp, 1000)
+    timestamp = datetime.datetime.utcfromtimestamp(seconds)
+    timestamp = timestamp.replace(microsecond=int(milliseconds))
     # add custom epoch (mili seconds)
-    
     new_entry.timestamp = timestamp
     if id_protocol >= 1:
         temp, press, hum, Co = body[3:3+4]
@@ -110,9 +115,10 @@ def save_to_db(headers, body):
                 new_entry.ACC_Z = ACC_Z
     new_entry.save()
     # loss entry
-    dif_timestamp = datetime.datetime.now()-timestamp
+    dif_timestamp = datetime.datetime.now().timestamp()-timestamp.timestamp()
+    print("dif_timestamp", dif_timestamp)
     # convert timedelta to timestamp miliseconds
-    dif_timestamp = dif_timestamp.total_seconds()//1000
+    
    
     loss_entry = Loss.get_or_create(data = new_entry, bytes_lost=0, latency= dif_timestamp) 
 

@@ -3,6 +3,8 @@
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
+#include <stdlib.h>
+
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "nvs_flash.h"
@@ -36,16 +38,18 @@ void app_main(void) {
      * menuconfig. Read "Establishing Wi-Fi or Ethernet Connection" section in
      * examples/protocols/README.md for more information about this function.
      */
+    
     ESP_ERROR_CHECK(example_connect());
+    init_global_vars();
     char restart = '0';
-     // Initialize and synchronize the SNTP client
+    // Initialize and synchronize the SNTP client
     initialize_sntp();
     wait_for_sntp_sync();
     get_mac_address(mac);
     generate_device_id(mac, &device_id);
     while (1) {
         config_t config;
-        handshake(&config, restart,device_id);
+        handshake(&config, restart, device_id);
         restart = '1';
         if (config.trans_layer == 'U') {
             udp_client(config.protocol_id);

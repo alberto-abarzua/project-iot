@@ -20,7 +20,8 @@ class Data(Model):
     # body all fields default null
     val = CharField(null=True)
     batt_level = CharField(null=True)
-    timestamp = TimestampField(null=True)
+    #microsecnosd
+    timestamp = TimestampField(resolution = 3,null=True)
     temp = CharField(null=True)
     press = IntegerField(null=True)
     hum = CharField(null=True)
@@ -46,7 +47,7 @@ class Loss(Model):
     # forgien key to data
     data = ForeignKeyField(Data, backref='losses', null=True)
     bytes_lost = IntegerField()
-    latency = IntegerField()
+    latency = TimestampField(resolution = 3,null=True)
     
 
     class Meta:
@@ -56,11 +57,11 @@ class Loss(Model):
 class Logs(Model):
     id = AutoField()
     # forgien key to data
-    timestamp = TimestampField(null=True)
+    timestamp = TimestampField(resolution = 3,null=True)
     id_device = IntegerField()
     transport_layer = CharField()
     id_protocol = CharField()
-    custom_epoch = TimestampField()
+    custom_epoch = TimestampField(resolution = 3,null=True)
     class Meta:
         database = db
 

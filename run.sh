@@ -7,7 +7,7 @@ export $(grep -v '^#' .env | xargs)
 flash_esp32() {
     echo "Flashing ESP-32..."
     docker compose build esp-idf
-    docker compose run esp-idf /bin/bash -c "cd /workspace && idf.py build && idf.py -p ${ESP_DEVICE} flash"
+    docker compose run esp-idf /bin/bash -c "python3 /usr/local/bin/generate_kconfig.py && cd /workspace && idf.py build && idf.py -p ${ESP_DEVICE} flash"
     if [ $? -eq 0 ]; then
         echo "ESP-32 flashed successfully."
         return 0
@@ -33,10 +33,15 @@ echo "$1"
 if [ "$TARGET_SERVICES" = "dev" ]; then
     if [ "$1" = "menuconfig" ]; then
         echo "runing config"
-        docker compose run esp-idf /bin/bash -c "cd /workspace && idf.py menuconfig"
+        docker compose run esp-idf /bin/bash -c "python3 /usr/local/bin/generate_kconfig.py && cd /workspace && idf.py menuconfig"
     elif [ "$1" = "monitor" ]; then
         echo "runing monitor"
         docker compose up --build server db adminer esp-idf
+    elif [ "$1" = "build" ]; then
+        echo "runing build"
+        docker compose build esp-idf --no-cache
+
+        docker compose run esp-idf /bin/bash -c "python3 /usr/local/bin/generate_kconfig.py && cd /workspace && idf.py build"
     else
         flash_esp32
         if [ $? -eq 1 ]; then
