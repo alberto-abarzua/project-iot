@@ -1,12 +1,10 @@
 # Base image
-FROM espressif/idf:release-v4.4
-
-# Install Python
-RUN apt-get update && apt-get install -y python3
+FROM espressif/idf:release-v5.1
 
 
-# Copy the entire project directory
-# COPY project/ /workspace/
+# sudo apt-get install cppcheck
+RUN apt-get update && apt-get install -y cppcheck 
+  
+COPY ./project/ /workspace/
 
-# Copy the Python script
 COPY generate_kconfig.py /usr/local/bin/

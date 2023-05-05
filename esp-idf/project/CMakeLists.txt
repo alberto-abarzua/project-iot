@@ -13,6 +13,9 @@ if("${IDF_TARGET}" STREQUAL "linux")
      
 endif()
 
+# set(SDKCONFIG_DEFAULTS "sdkconfig.defaults")
+
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 

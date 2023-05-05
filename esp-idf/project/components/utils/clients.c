@@ -117,7 +117,7 @@ void tcp_client(int protocol_id) {
     // Send and Recevie message to and from server
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(TCP_TIMEOUT));  // delay for 1 seconds
-        int err = send_pakcet_tcp(sock, protocol_id);
+        err = send_pakcet_tcp(sock, protocol_id);
         // int err = send(sock, payload, strlen(payload), 0);
         if (err < 0) {
             ESP_LOGE(TAG, "Error occurred during sending: errno %s\n",

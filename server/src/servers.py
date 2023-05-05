@@ -1,24 +1,25 @@
-import socket
-from models import *
-import threading
-from packet_parser import PacketParser
-import sys
 import datetime
-from playhouse.shortcuts import model_to_dict
+import os
+import socket
+import sys
+import threading
+
+from models import Data, Logs, Loss, get_default_config, get_last_log
+from packet_parser import PacketParser
 
 
 def handshake_server():
     while True:
-        succ = start_handshake()
+        start_handshake()
 
 
 def start_handshake():
     success = False
     print("Starting handshake")
-    SERVER_PORT_HANDSHAKE = os.environ.get("SERVER_PORT_HANDSHAKE")
+    SESP_PORT_HANDSHAKE = os.environ.get("SESP_PORT_HANDSHAKE")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(('0.0.0.0', int(SERVER_PORT_HANDSHAKE)))
+    server_socket.bind(("0.0.0.0", int(SESP_PORT_HANDSHAKE)))
     server_socket.listen(5)
 
     client_socket, client_address = server_socket.accept()
@@ -26,10 +27,10 @@ def start_handshake():
     data = client_socket.recv(1024)
     if b"hb" in data:
         id_device = data[3:5]
-        custom_epoch = data[5:5+8]
+        custom_epoch = data[5 : 5 + 8]
         # convert to int
         id_device = int.from_bytes(id_device, byteorder="little")
-        custom_epoch_millis = int.from_bytes(custom_epoch, byteorder='little')
+        custom_epoch_millis = int.from_bytes(custom_epoch, byteorder="little")
         print("Handshake received from device", id_device, custom_epoch_millis)
 
         seconds, milliseconds = divmod(custom_epoch_millis, 1000)
@@ -40,13 +41,13 @@ def start_handshake():
         config.last_access = datetime.datetime.now()
         config.save()
         to_send_text = config.transport_layer + str(config.id_protocol)
-        to_send_bytes = to_send_text.encode('utf-8')
+        to_send_bytes = to_send_text.encode("utf-8")
         print("Sending config to bro", to_send_bytes, len(to_send_bytes))
         client_socket.send(to_send_bytes)
 
     # wait for ok bro
     data = client_socket.recv(1024)
-    if data == b'ob':
+    if data == b"ob":
         print("Handshake successful")
         # log
         print("Saving log")
@@ -55,7 +56,7 @@ def start_handshake():
             id_device=id_device,
             transport_layer=get_default_config().transport_layer,
             id_protocol=get_default_config().id_protocol,
-            custom_epoch = custom_epoch
+            custom_epoch=custom_epoch,
         )
         log.save()
         success = True
@@ -85,14 +86,14 @@ def save_to_db(headers, body):
     new_entry.message_length = message_length
     new_entry.val = val
     new_entry.batt_level = batt_level
-    timestamp+=custom_epoch.timestamp()*1000
+    timestamp += custom_epoch.timestamp() * 1000
     seconds, milliseconds = divmod(timestamp, 1000)
     timestamp = datetime.datetime.utcfromtimestamp(seconds)
     timestamp = timestamp.replace(microsecond=int(milliseconds))
     # add custom epoch (mili seconds)
     new_entry.timestamp = timestamp
     if id_protocol >= 1:
-        temp, press, hum, Co = body[3:3+4]
+        temp, press, hum, Co = body[3 : 3 + 4]
         new_entry.temp = temp
         new_entry.press = press
         new_entry.hum = hum
@@ -115,12 +116,11 @@ def save_to_db(headers, body):
                 new_entry.ACC_Z = ACC_Z
     new_entry.save()
     # loss entry
-    dif_timestamp = datetime.datetime.now().timestamp()-timestamp.timestamp()
+    dif_timestamp = datetime.datetime.now().timestamp() - timestamp.timestamp()
     print("dif_timestamp", dif_timestamp)
     # convert timedelta to timestamp miliseconds
-    
-   
-    loss_entry = Loss.get_or_create(data = new_entry, bytes_lost=0, latency= dif_timestamp) 
+
+    Loss.get_or_create(data=new_entry, bytes_lost=0, latency=dif_timestamp)
 
 
 # *****************************************************************************
@@ -133,12 +133,12 @@ def save_to_db(headers, body):
 
 
 def recv_in_chunks_tcp(socket, total, chunk_size=1024):
-    data = b''
+    data = b""
     while len(data) < total:
         try:
             chunk = socket.recv(chunk_size)
         except socket.timeout:
-            raise LossException(total-len(data))
+            raise LossException(total - len(data))
         if not chunk:
             break
         data += chunk
@@ -162,12 +162,12 @@ def server_tcp():
 
     print("Starting TCP server", start_config)
     # config as dict
-    SERVER_PORT_TCP = os.environ.get("SERVER_PORT_TCP")
+    SESP_PORT_TCP = os.environ.get("SESP_PORT_TCP")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(('0.0.0.0', int(SERVER_PORT_TCP)))
+    server_socket.bind(("0.0.0.0", int(SESP_PORT_TCP)))
     server_socket.listen(5)
-    print("Server is listening on port: ", SERVER_PORT_TCP)
+    print("Server is listening on port: ", SESP_PORT_TCP)
     while True:
         client_socket, client_address = server_socket.accept()
         client_socket.settimeout(5)
@@ -189,8 +189,9 @@ def server_tcp():
                 data_headers = recv_headers_tcp(client_socket)
                 headers = parser.parse_headers(data_headers)
                 _, _, _, id_protocol, message_length = headers
-                body = parser.parse_body(recv_in_chunks_tcp(
-                    client_socket, message_length), id_protocol)
+                body = parser.parse_body(
+                    recv_in_chunks_tcp(client_socket, message_length), id_protocol
+                )
                 save_to_db(headers, body)
                 print("Data saved to db")
             except LossException as e:
@@ -208,6 +209,7 @@ def server_tcp():
                 server_socket.close()
                 exit(1)
 
+
 # *****************************************************************************
 # *                                                                           *
 # *  ***********************    UDP    ***************************  *
@@ -223,7 +225,7 @@ def recv_headers_udp(socket):
 
 
 def recv_in_chunks_udp(socket, total, chunk_size=1024):
-    data = b''
+    data = b""
     while len(data) < total:
         chunk_size = min(chunk_size, total - len(data))
         chunk, _ = socket.recvfrom(chunk_size)
@@ -237,16 +239,16 @@ def recv_in_chunks_udp(socket, total, chunk_size=1024):
 def server_udp():
     start_time = datetime.datetime.now()
 
-    SERVER_PORT_UDP = os.environ.get("SERVER_PORT_UDP")
+    SESP_PORT_UDP = os.environ.get("SESP_PORT_UDP")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(('0.0.0.0', int(SERVER_PORT_UDP)))
+    server_socket.bind(("0.0.0.0", int(SESP_PORT_UDP)))
     server_socket.settimeout(5)
     start_config = get_default_config()
     start_layer = start_config.transport_layer
     start_protocol = start_config.id_protocol
     parser = PacketParser()
-    print("Server UDP is listening on port: ", SERVER_PORT_UDP)
+    print("Server UDP is listening on port: ", SESP_PORT_UDP)
     while True:
         cur_config = get_default_config()
         recently_accesed = cur_config.was_recently_accesed(start_time)
@@ -259,8 +261,9 @@ def server_udp():
         data_headers = recv_headers_udp(server_socket)
         headers = parser.parse_headers(data_headers)
         _, _, _, id_protocol, message_length = headers
-        body = parser.parse_body(recv_in_chunks_udp(
-            server_socket, message_length), id_protocol)
+        body = parser.parse_body(
+            recv_in_chunks_udp(server_socket, message_length), id_protocol
+        )
         save_to_db(headers, body)
 
 

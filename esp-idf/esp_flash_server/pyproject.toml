@@ -1,0 +1,14 @@
+[tool.pdm]
+
+[project]
+name = ""
+version = ""
+description = ""
+authors = [
+    {name = "alberto-abarzua", email = "no"},
+]
+dependencies = [
+    "esptool>=4.5.1",
+]
+requires-python = ">=3.11"
+license = {text = "MIT"}

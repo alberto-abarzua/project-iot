@@ -2,16 +2,21 @@
 
 /* *****************************************************************************
  *                                                                             *
- *  ***********************    TIME AND GLOBAL    ***************************    *
+ *  ***********************    TIME AND GLOBAL    *************************** *
  *                                                                             *
  *  *************** <><><><><><><><><><><><><><><><><><><><> *************    *
  *                                                                             *
  *****************************************************************************/
 
+uint16_t HEADER_LENGTH;
+uint64_t CUSTOM_GLOBAL_EPOCH_MICROSECONDS;
+
 void init_global_vars() {
     HEADER_LENGTH = sizeof(hd_01234_t);
     CUSTOM_GLOBAL_EPOCH_MICROSECONDS = current_unix_timestamp();
-    
+    //log custom 
+    ESP_LOGI(TAG, "HEADER_LENGTH: %d", HEADER_LENGTH);
+    ESP_LOGI(TAG, "CUSTOM_GLOBAL_EPOCH_MICROSECONDS: %llu", CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
 }
 
 void initialize_sntp(void) {
@@ -50,10 +55,10 @@ uint32_t get_timestamp_from_custom_epoch(void) {
 
 /* *****************************************************************************
  *                                                                             *
- *  ***********************    VARIABLE GENERATORS    ***************************    *
+ *  ***********************    VARIABLE GENERATORS *************************** *
  *                                                                             *
  *  *************** <><><><><><><><><><><><><><><><><><><><> *************    *
  *                                                                             *
  *****************************************************************************/
 
-//TODO: add random generating functions for each data type
+// TODO: add random generating functions for each data type

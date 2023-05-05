@@ -17,13 +17,13 @@ services:
       - POSTGRES_DB
       - POSTGRES_PORT
       - POSTGRES_HOST
-      - SERVER_PORT_HANDSHAKE
-      - SERVER_PORT_TCP
-      - SERVER_PORT_UDP
+      - SESP_PORT_HANDSHAKE
+      - SESP_PORT_TCP
+      - SESP_PORT_UDP
     ports:
-      - ${SERVER_PORT_TCP}:${SERVER_PORT_TCP}
-      - ${SERVER_PORT_HANDSHAKE}:${SERVER_PORT_HANDSHAKE}
-      - ${SERVER_PORT_UDP}:${SERVER_PORT_UDP}/udp
+      - ${SESP_PORT_TCP}:${SESP_PORT_TCP}
+      - ${SESP_PORT_HANDSHAKE}:${SESP_PORT_HANDSHAKE}
+      - ${SESP_PORT_UDP}:${SESP_PORT_UDP}/udp
 
   db:
     image: postgres:15.2-alpine
@@ -41,17 +41,27 @@ services:
       - 8080:8080
     volumes:
       - adminer_sessions:/sessions
+
   esp-idf:
-    build: ./esp-idf 
+    build: ./esp-idf
     volumes:
-      - .esp-idf/project/:/workspace
+      - ./esp-idf/project/:/workspace
+      - ./esp-idf/entrypoint.sh:/entrypoint.sh
+    command: monitor
     environment:
-      - ESP_DEVICE
-    devices:
-      - "${ESP_DEVICE}:${ESP_DEVICE}"
-    command: /bin/bash -c "cd /workspace && idf.py -p ${ESP_DEVICE} monitor"
+      - SESP_PORT_HANDSHAKE
+      - SESP_PORT_TCP
+      - SESP_PORT_UDP
+      - SESP_UDP_TIMEOUT
+      - SESP_TCP_TIMEOUT
+      - ESP_DEVICE_PORT
+      - ESP_DEVICE_BAUDRATE
+      - ESP_RFC2217_PORT
+      - SESP_IPV4_ADDR
+    entrypoint: /entrypoint.sh
     tty: true
     stop_signal: SIGINT
+    privileged: true
 
 volumes:
   db_data:

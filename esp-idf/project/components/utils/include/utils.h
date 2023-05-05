@@ -1,5 +1,6 @@
 #ifndef utils_h
 #define utils_h
+// #include <arpa/inet.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
@@ -15,18 +16,17 @@
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
 #include "sdkconfig.h"
-
 #define NTP_SERVER "pool.ntp.org"
-#define HOST_IP_ADDR CONFIG_EXAMPLE_IPV4_ADDR
-#define TCP_PORT CONFIG_TCP_PORT
-#define UDP_PORT CONFIG_UDP_PORT
-#define HANDSHAKE_PORT CONFIG_HANDSHAKE_PORT
-#define TCP_TIMEOUT 1000
-#define UDP_TIMEOUT 1000
+#define HOST_IP_ADDR CONFIG_IPV4_ADDR
+#define TCP_PORT CONFIG_PORT_TCP
+#define UDP_PORT CONFIG_PORT_UDP
+#define HANDSHAKE_PORT CONFIG_PORT_HANDSHAKE
+#define TCP_TIMEOUT CONFIG_TCP_TIMEOUT
+#define UDP_TIMEOUT CONFIG_UDP_TIMEOUT
 #define TAG "ESP_32"
 
-uint16_t HEADER_LENGTH;
-uint64_t CUSTOM_GLOBAL_EPOCH_MICROSECONDS;
+extern uint16_t HEADER_LENGTH;
+extern uint64_t CUSTOM_GLOBAL_EPOCH_MICROSECONDS;
 
 #pragma pack(push, 1)
 typedef struct hd_01234 {
