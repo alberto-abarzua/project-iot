@@ -1,69 +1,14 @@
 #include "utils.h"
 
-#include <sys/socket.h>
-
-void initialize_sntp(void) {
-    ESP_LOGI(TAG, "Initializing SNTP");
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, NTP_SERVER);
-    sntp_init();
-}
-
-void wait_for_sntp_sync() {
-    time_t now = 0;
-    struct tm timeinfo = {0};
-    int retry = 0;
-    const int retry_count = 10;
-
-    while (timeinfo.tm_year < (2016 - 1900) && ++retry < retry_count) {
-        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry,
-                 retry_count);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-        time(&now);
-        localtime_r(&now, &timeinfo);
-    }
-}
-
-uint32_t time_now() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec;
-}
-
-uint64_t timestamp_milis() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (uint64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
-}
-
-uint32_t get_custom_millisecond_timestamp() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-
-    // Calculate the number of seconds since the Unix epoch (1970)
-    int64_t seconds_since_unix_epoch = (int64_t)tv.tv_sec;
-
-    // Calculate the number of seconds since the custom epoch (2020)
-    int64_t seconds_since_custom_epoch =
-        seconds_since_unix_epoch - (int64_t)custom_epoch_global;
-
-    // Convert to milliseconds
-    uint64_t milliseconds_since_custom_epoch =
-        (uint64_t)(seconds_since_custom_epoch * 1000 + tv.tv_usec / 1000);
-
-    // Truncate to a 4-byte integer
-    return (uint32_t)milliseconds_since_custom_epoch;
-}
-
 char *create_packet_protocol0(int *a_packet_size) {
     int packet_size = 2 * sizeof(char) + 1 * sizeof(int32_t);
     *a_packet_size = packet_size + sizeof(hd_01234_t);
     hd_01234_t header = {(int16_t)23, "123456", 0, 0,
                          (int16_t)*a_packet_size - sizeof(hd_01234_t)};
     ds_p0123_t packet;
-    packet.data1 = '1';
-    packet.data2 = '1';
-    packet.data3 = get_custom_millisecond_timestamp();
+    packet.data1 = val1();
+    packet.data2 = batt_level();
+    packet.data3 = get_timestamp_from_custom_epoch();
 
     char *buffer = (char *)malloc(*a_packet_size);
     memcpy(buffer, &header, sizeof(hd_01234_t));
@@ -78,13 +23,13 @@ char *create_packet_protocol1(int *a_packet_size) {
                          (int16_t)*a_packet_size - sizeof(hd_01234_t)};
     ds_p0123_t packet;
 
-    packet.data1 = '1';
-    packet.data2 = '1';
-    packet.data3 = get_custom_millisecond_timestamp();
-    packet.data4 = '1';
-    packet.data5 = 2147483647;
-    packet.data6 = '1';
-    packet.data7 = 2147483647;
+    packet.data1 = val1();
+    packet.data2 = batt_level();
+    packet.data3 = get_timestamp_from_custom_epoch();
+    packet.data4 = temp();
+    packet.data5 = press();
+    packet.data6 = hum();
+    packet.data7 = co();
 
     char *buffer = (char *)malloc(*a_packet_size);
     memcpy(buffer, &header, sizeof(hd_01234_t));
@@ -98,13 +43,13 @@ char *create_packet_protocol2(int *a_packet_size) {
     hd_01234_t header = {(int16_t)23, "123456", 0, 2,
                          (int16_t)*a_packet_size - sizeof(hd_01234_t)};
     ds_p0123_t packet;
-    packet.data1 = '1';
-    packet.data2 = '1';
-    packet.data3 = get_custom_millisecond_timestamp();
-    packet.data4 = '1';
-    packet.data5 = 2147483647;
-    packet.data6 = '1';
-    packet.data7 = 2147483647;
+    packet.data1 = val1();
+    packet.data2 = batt_level();
+    packet.data3 = get_timestamp_from_custom_epoch();
+    packet.data4 = temp();
+    packet.data5 = press();
+    packet.data6 = hum();
+    packet.data7 = co();
     packet.data8 = 2147483647;
 
     char *buffer = (char *)malloc(*a_packet_size);
@@ -120,20 +65,20 @@ char *create_packet_protocol3(int *a_packet_size) {
     hd_01234_t header = {(int16_t)23, "123456", 0, 3,
                          (int16_t)*a_packet_size - sizeof(hd_01234_t)};
     ds_p0123_t packet;
-    packet.data1 = '1';
-    packet.data2 = '1';
-    packet.data3 = get_custom_millisecond_timestamp();
-    packet.data4 = '1';
-    packet.data5 = 2147483647;
-    packet.data6 = '1';
-    packet.data7 = 2147483647;
-    packet.data8 = 2147483647;
-    packet.data9 = 2147483647;
-    packet.data10 = 2147483647;
-    packet.data11 = 2147483647;
-    packet.data12 = 2147483647;
-    packet.data13 = 2147483647;
-    packet.data14 = 2147483647;
+    packet.data1 = val1();
+    packet.data2 = batt_level();
+    packet.data3 = get_timestamp_from_custom_epoch();
+    packet.data4 = temp();
+    packet.data5 = press();
+    packet.data6 = hum();
+    packet.data7 = co();
+    packet.data8 = rms();
+    packet.data9 = ampx();
+    packet.data10 = freqx();
+    packet.data11 = ampy();
+    packet.data12 = freqy();
+    packet.data13 = ampz();
+    packet.data14 = freqz();
 
     char *buffer = (char *)malloc(*a_packet_size);
     memcpy(buffer, &header, sizeof(hd_01234_t));
@@ -147,13 +92,13 @@ char *create_packet_protocol4(int *a_packet_size) {
     hd_01234_t header = {(int16_t)23, "123456", 0, 4,
                          (int16_t)*a_packet_size - sizeof(hd_01234_t)};
     ds_p4_t packet;
-    packet.data1 = '1';
-    packet.data2 = '1';
-    packet.data3 = get_custom_millisecond_timestamp();
-    packet.data4 = '1';
-    packet.data5 = 2147483647;
-    packet.data6 = '1';
-    packet.data7 = 2147483647;
+    packet.data1 = val1();
+    packet.data2 = batt_level();
+    packet.data3 = get_timestamp_from_custom_epoch();
+    packet.data4 = temp();
+    packet.data5 = press();
+    packet.data6 = hum();
+    packet.data7 = co();
     char *buffer = (char *)malloc(*a_packet_size);
     memcpy(buffer, &header, sizeof(hd_01234_t));
     memcpy(buffer + sizeof(hd_01234_t), &packet, base_packet_size);
@@ -164,11 +109,9 @@ char *create_packet_protocol4(int *a_packet_size) {
     offset += 8000;
     packet.data10 = buffer + offset;
 
-    memset(packet.data8, '1', 8000);
-
-    memset(packet.data9, '1', 8000);
-
-    memset(packet.data10, '1', 8000);
+    accx(packet.data8);
+    accy(packet.data9);
+    accz(packet.data10);
 
     return buffer;
 }
@@ -195,8 +138,6 @@ char *create_packet(int protocol_id, int *packet_size) {
             break;
     }
 }
-
-int min(int a, int b) { return (a < b) ? a : b; }
 
 /* *****************************************************************************
  *                                                                             *

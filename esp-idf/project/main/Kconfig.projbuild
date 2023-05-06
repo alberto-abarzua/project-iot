@@ -1,0 +1,41 @@
+
+menu "Environment Variables"
+
+
+config TCP_TIMEOUT
+    int "TCP_TIMEOUT"
+    default 60000
+    help
+        Environment variable: TCP_TIMEOUT
+
+config PORT_UDP
+    int "PORT_UDP"
+    default 4201
+    help
+        Environment variable: PORT_UDP
+
+config PORT_HANDSHAKE
+    int "PORT_HANDSHAKE"
+    default 4199
+    help
+        Environment variable: PORT_HANDSHAKE
+
+config IPV4_ADDR
+    string "IPV4_ADDR"
+    default "192.168.0.9"
+    help
+        Environment variable: IPV4_ADDR
+
+config PORT_TCP
+    int "PORT_TCP"
+    default 4200
+    help
+        Environment variable: PORT_TCP
+
+config UDP_TIMEOUT
+    int "UDP_TIMEOUT"
+    default 2000
+    help
+        Environment variable: UDP_TIMEOUT
+
+endmenu

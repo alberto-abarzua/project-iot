@@ -1,9 +1,7 @@
-/*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
- */
+#include <stdlib.h>
+
 #include "esp_event.h"
+#include "esp_mac.h"
 #include "esp_netif.h"
 #include "nvs_flash.h"
 #include "protocol_examples_common.h"
@@ -31,21 +29,21 @@ void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    /* This helper function configures Wi-Fi or Ethernet, as selected in
-     * menuconfig. Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
     ESP_ERROR_CHECK(example_connect());
-    char restart = '0';
-     // Initialize and synchronize the SNTP client
+
+    // Initialize and synchronize the SNTP client
     initialize_sntp();
     wait_for_sntp_sync();
+
     get_mac_address(mac);
+
+    char restart = '0';
     generate_device_id(mac, &device_id);
+    ESP_LOGI(TAG, "\n\nDevice ID: %d helooo im cool!\n\n", device_id);
     while (1) {
         config_t config;
-        handshake(&config, restart,device_id);
+        init_global_vars();
+        handshake(&config, restart, device_id);
         restart = '1';
         if (config.trans_layer == 'U') {
             udp_client(config.protocol_id);

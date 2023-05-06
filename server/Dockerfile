@@ -4,7 +4,7 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-RUN pip install pdm==2.4.9
+RUN pip install pdm==2.5.5
 
 COPY pyproject.toml /app/.
 COPY pdm.lock /app/.
