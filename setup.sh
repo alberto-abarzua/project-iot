@@ -95,4 +95,5 @@ ip_address=$(ifconfig wlo1 | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2
 
 # Echo the IP address to the console in green color
 echo -e "${YELLOW}Your IP address is: $ip_address${NC}"
+echo "Use this to set up the .env file from the .env.template..."
 
