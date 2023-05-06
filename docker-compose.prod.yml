@@ -3,10 +3,6 @@ version: "3.8"
 services:
   server:
     build: ./server
-    volumes:
-      - ./server/src/:/app/src/
-      - ./server/pdm.lock:/app/pdm.lock
-      - ./server/pyproject.toml:/app/pyproject.toml
     command: pdm run python src/main_server.py
     depends_on:
       - db
@@ -42,27 +38,5 @@ services:
     image: adminer
     ports:
       - 8080:8080
-
-  esp-idf:
-    build: ./esp-idf
-    volumes:
-      - ./esp-idf/project/:/workspace
-      - ./esp-idf/entrypoint.sh:/entrypoint.sh
-    command: monitor
-    environment:
-      - SESP_PORT_HANDSHAKE
-      - SESP_PORT_TCP
-      - SESP_PORT_UDP
-      - SESP_UDP_TIMEOUT
-      - SESP_TCP_TIMEOUT
-      - ESP_DEVICE_PORT
-      - ESP_DEVICE_BAUDRATE
-      - ESP_RFC2217_PORT
-      - SESP_IPV4_ADDR
-    entrypoint: /entrypoint.sh
-    tty: true
-    stop_signal: SIGINT
-    privileged: true
-
 volumes:
   db_data:
