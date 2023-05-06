@@ -4,7 +4,7 @@ menu "Environment Variables"
 
 config TCP_TIMEOUT
     int "TCP_TIMEOUT"
-    default 1000
+    default 60000
     help
         Environment variable: TCP_TIMEOUT
 
@@ -34,7 +34,7 @@ config PORT_TCP
 
 config UDP_TIMEOUT
     int "UDP_TIMEOUT"
-    default 1000
+    default 2000
     help
         Environment variable: UDP_TIMEOUT
 

@@ -20,6 +20,9 @@ services:
       - SESP_PORT_HANDSHAKE
       - SESP_PORT_TCP
       - SESP_PORT_UDP
+      - SESP_UDP_TIMEOUT
+      - SESP_TCP_TIMEOUT
+      - DEBUG
     ports:
       - ${SESP_PORT_TCP}:${SESP_PORT_TCP}
       - ${SESP_PORT_HANDSHAKE}:${SESP_PORT_HANDSHAKE}

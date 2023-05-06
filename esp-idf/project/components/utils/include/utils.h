@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "esp_log.h"
 #include "esp_netif.h"
@@ -16,6 +17,11 @@
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
 #include "sdkconfig.h"
+#include <esp_sleep.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #define NTP_SERVER "pool.ntp.org"
 #define HOST_IP_ADDR CONFIG_IPV4_ADDR
 #define TCP_PORT CONFIG_PORT_TCP
@@ -87,4 +93,24 @@ void wait_for_sntp_sync();
 void init_global_vars();
 uint32_t get_timestamp_from_custom_epoch(void);
 uint64_t current_unix_timestamp();
+
+
+char val1();
+char batt_level();
+char temp();
+uint32_t press();
+char hum();
+uint32_t co();
+float random_float(float min, float max);
+uint32_t ampx();
+uint32_t freqx();
+uint32_t ampy();
+uint32_t freqy();
+uint32_t ampz();
+uint32_t freqz();
+uint32_t rms();
+void accx(char *buf);
+void accy(char *buf);
+void accz(char *buf);
+
 #endif  // utils_h

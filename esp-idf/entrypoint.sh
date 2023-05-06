@@ -16,6 +16,13 @@ if [ "$1" = "lint" ]; then
     echo "Running cppcheck..."
     cppcheck --enable=all --std=c11 -i build/ .
 
+# if menuconfig
+elif [ "$1" = "menuconfig" ]; then
+    # IF SDKCONFIG DOES EXIST REMOVE IT
+    if [ -f sdkconfig ]; then
+        rm sdkconfig
+    fi
+    idf.py menuconfig
 elif [ $# -eq 0 ]; then
 
     idf.py -p ${FLASH_PORT} monitor

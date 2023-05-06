@@ -87,8 +87,55 @@ int handshake(config_t *config, char restart, uint16_t device_id) {
  *                                                                             *
  *****************************************************************************/
 
+// void tcp_client(int protocol_id) {
+//     // char rx_buffer[1024];
+//     ESP_LOGI(TAG, "TCP Client Started");
+
+//     // Define ADDRESS
+//     struct sockaddr_in dest_addr;
+//     inet_pton(AF_INET, HOST_IP_ADDR, &dest_addr.sin_addr);
+//     dest_addr.sin_family = AF_INET;
+//     dest_addr.sin_port = htons(TCP_PORT);
+//     // Create socket
+//     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+
+//     if (sock < 0) {
+//         ESP_LOGE(TAG, "Unable to create socket: errno %s\n", strerror(errno));
+//         return;
+//     }
+
+//     ESP_LOGI(TAG, "Socket created, connecting to %s:%d", HOST_IP_ADDR,
+//              TCP_PORT);
+
+//     int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+//     if (err != 0) {
+//         ESP_LOGE(TAG, "Socket unable to connect: errno %s\n", strerror(errno));
+//         return;
+//     }
+//     ESP_LOGI(TAG, "Successfully connected");
+
+//     // Send and Recevie message to and from server
+//     while (1) {
+//         vTaskDelay(pdMS_TO_TICKS(TCP_TIMEOUT));      // delay for 1 seconds
+//         esp_sleep_enable_timer_wakeup(TCP_TIMEOUT * 1000);  // Sleep for 5 seconds
+//         esp_deep_sleep_start();
+
+//         err = send_pakcet_tcp(sock, protocol_id);
+//         // int err = send(sock, payload, strlen(payload), 0);
+//         if (err < 0) {
+//             ESP_LOGE(TAG, "Error occurred during sending: errno %s\n",
+//                      strerror(errno));
+//             break;
+//         }
+//     }
+
+//     if (sock != -1) {
+//         ESP_LOGE(TAG, "Shutting down socket and restarting...");
+//         shutdown(sock, 0);
+//         close(sock);
+//     }
+// }
 void tcp_client(int protocol_id) {
-    // char rx_buffer[1024];
     ESP_LOGI(TAG, "TCP Client Started");
 
     // Define ADDRESS
@@ -96,17 +143,16 @@ void tcp_client(int protocol_id) {
     inet_pton(AF_INET, HOST_IP_ADDR, &dest_addr.sin_addr);
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(TCP_PORT);
+
     // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-
     if (sock < 0) {
         ESP_LOGE(TAG, "Unable to create socket: errno %s\n", strerror(errno));
         return;
     }
+    ESP_LOGI(TAG, "Socket created, connecting to %s:%d", HOST_IP_ADDR, TCP_PORT);
 
-    ESP_LOGI(TAG, "Socket created, connecting to %s:%d", HOST_IP_ADDR,
-             TCP_PORT);
-
+    // Connect to server
     int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     if (err != 0) {
         ESP_LOGE(TAG, "Socket unable to connect: errno %s\n", strerror(errno));
@@ -114,24 +160,25 @@ void tcp_client(int protocol_id) {
     }
     ESP_LOGI(TAG, "Successfully connected");
 
-    // Send and Recevie message to and from server
+    // Send packets to server
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(TCP_TIMEOUT));  // delay for 1 seconds
         err = send_pakcet_tcp(sock, protocol_id);
-        // int err = send(sock, payload, strlen(payload), 0);
         if (err < 0) {
-            ESP_LOGE(TAG, "Error occurred during sending: errno %s\n",
-                     strerror(errno));
+            ESP_LOGE(TAG, "Error occurred during sending: errno %s\n", strerror(errno));
             break;
         }
+
+        vTaskDelay(pdMS_TO_TICKS(60000)); // Sleep for 60 seconds
     }
 
+    // Clean up socket
     if (sock != -1) {
         ESP_LOGE(TAG, "Shutting down socket and restarting...");
         shutdown(sock, 0);
         close(sock);
     }
 }
+
 /* *****************************************************************************
  *                                                                             *
  *  ***********************    UDP    ***************************    *

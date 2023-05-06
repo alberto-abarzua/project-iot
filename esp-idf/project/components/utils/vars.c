@@ -14,9 +14,10 @@ uint64_t CUSTOM_GLOBAL_EPOCH_MICROSECONDS;
 void init_global_vars() {
     HEADER_LENGTH = sizeof(hd_01234_t);
     CUSTOM_GLOBAL_EPOCH_MICROSECONDS = current_unix_timestamp();
-    //log custom 
+    // log custom
     ESP_LOGI(TAG, "HEADER_LENGTH: %d", HEADER_LENGTH);
-    ESP_LOGI(TAG, "CUSTOM_GLOBAL_EPOCH_MICROSECONDS: %llu", CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
+    ESP_LOGI(TAG, "CUSTOM_GLOBAL_EPOCH_MICROSECONDS: %llu",
+             CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
 }
 
 void initialize_sntp(void) {
@@ -62,3 +63,69 @@ uint32_t get_timestamp_from_custom_epoch(void) {
  *****************************************************************************/
 
 // TODO: add random generating functions for each data type
+
+char val1() { return (char)1; }
+
+char batt_level() {
+    return (char)((uint64_t)(get_timestamp_from_custom_epoch() / 10e6) % 100);
+}
+
+char temp() {
+    return (char)(((uint64_t)(get_timestamp_from_custom_epoch() / 6e2) % 26) +
+                  5);
+}
+
+uint32_t press() {
+    return (((uint64_t)(get_timestamp_from_custom_epoch() / 6e2) % 201) + 1000);
+}
+
+char hum() {
+    return (char)(((uint64_t)(get_timestamp_from_custom_epoch() / 6e2) % 51) +
+                  30);
+}
+
+uint32_t co() {
+    return (((uint64_t)(get_timestamp_from_custom_epoch() / 6e2) % 171) + 30);
+}
+
+float random_float(float min, float max) {
+    float scale = rand() / (float)RAND_MAX; /* [0, 1.0] */
+    return min + scale * (max - min);       /* [min, max] */
+}
+
+uint32_t ampx() { return random_float(0.0059, 0.12); }
+
+uint32_t freqx() { return random_float(29.0, 31.0); }
+
+uint32_t ampy() { return random_float(0.0041, 0.11); }
+
+uint32_t freqy() { return random_float(59.0, 61.0); }
+
+uint32_t ampz() { return random_float(0.008, 0.15); }
+
+uint32_t freqz() { return random_float(89.0, 91.0); }
+
+uint32_t rms() {
+    return sqrt(pow(ampx(), 2) + pow(ampy(), 2) + pow(ampz(), 2));
+}
+
+void accx(char *buf) {
+    float *write_ptr = (float *)buf;
+    for (int i = 0; i < 2000; i++) {
+        write_ptr[i] = 2.0f * sinf(2.0f * M_PI * 0.001f * (float)i);
+    }
+}
+
+void accy(char *buf) {
+    float *write_ptr = (float *)buf;
+    for (int i = 0; i < 2000; i++) {
+        write_ptr[i] = 3.0f * sinf(2.0f * M_PI * 0.001f * (float)i);
+    }
+}
+
+void accz(char *buf) {
+    float *write_ptr = (float *)buf;
+    for (int i = 0; i < 2000; i++) {
+        write_ptr[i] = 10.0f * sinf(2.0f * M_PI * 0.001f * (float)i);
+    }
+}

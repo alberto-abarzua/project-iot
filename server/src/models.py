@@ -60,7 +60,7 @@ class Loss(Model):
     # forgien key to data
     data = ForeignKeyField(Data, backref="losses", null=True)
     bytes_lost = IntegerField()
-    latency = TimestampField(resolution=3, null=True)
+    latency = IntegerField(null=True)
 
     class Meta:
         database = db
@@ -86,11 +86,11 @@ class Config(Model):
     #  last access time
     last_access = DateTimeField()
 
-    def was_recently_accesed(self, time_ref):
+    def was_recently_accessed(self, time_ref):
         now = datetime.datetime.now()
-        return (now - self.last_access).total_seconds() < 60 and (
-            now - time_ref
-        ).total_seconds() > 60
+        recent_acess = (now - self.last_access).total_seconds() < 60
+        away_from_time_ref = (now - time_ref).total_seconds() > 90
+        return recent_acess and away_from_time_ref
 
     def was_changed(self, start_layer, start_protocol):
         return self.id_protocol != start_protocol or self.transport_layer != start_layer
@@ -105,7 +105,8 @@ MODELS = [Data, Logs, Config, Loss]
 def db_init():
     db.connect()
     try:
-        db.drop_tables(MODELS)
+        if os.environ.get("DEBUG"):
+            db.drop_tables(MODELS)
     except Exception as e:
         print(e)
         pass
@@ -117,18 +118,6 @@ def db_close():
 
 
 def get_last_log():
-    # print all logs
-    print("this is length", len(Logs.select()))
-    for log in Logs.select():
-        print("lakjdflkasjdflk;sadjfl;ksjdfl;kasdfl;ksdjf")
-        print(
-            log.id,
-            log.timestamp,
-            log.id_device,
-            log.transport_layer,
-            log.id_protocol,
-            log.custom_epoch,
-        )
     return Logs.select().order_by(Logs.id.desc()).get()
 
 
@@ -136,8 +125,8 @@ def get_default_config():
     config, _ = Config.get_or_create(
         config_name="default",
         defaults={
-            "id_protocol": 0,
-            "transport_layer": "T",
+            "id_protocol": 4,
+            "transport_layer": "U",
             "last_access": datetime.datetime.now(),
         },
     )

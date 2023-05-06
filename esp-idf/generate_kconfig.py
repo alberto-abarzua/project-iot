@@ -54,7 +54,6 @@ config {}
 
     for key, value in os.environ.items():
         value = convert_to_int_if_int(value)
-        print(key, value, type(value))
         if key.startswith("SESP_"):
             key = key[5:]
             kconfig_content.append(env_variable_template.format(
