@@ -22,7 +22,7 @@ config PORT_HANDSHAKE
 
 config IPV4_ADDR
     string "IPV4_ADDR"
-    default "192.168.0.9"
+    default "10.42.0.1"
     help
         Environment variable: IPV4_ADDR
 
