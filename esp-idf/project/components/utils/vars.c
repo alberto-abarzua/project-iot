@@ -20,14 +20,15 @@ void init_global_vars() {
              CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
 }
 
-void initialize_sntp(void) {
+void initialize_sntp(
+    void) {  // not going to be used RN (no internet access in this case)
     ESP_LOGI(TAG, "Initializing SNTP");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_setservername(0, NTP_SERVER);
     sntp_init();
 }
 
-void wait_for_sntp_sync() {
+void wait_for_sntp_sync() {  // Same as initialize_sntp
     time_t now = 0;
     struct tm timeinfo = {0};
     int retry = 0;
@@ -46,12 +47,14 @@ uint64_t current_unix_timestamp() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     uint64_t now = (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
-    return now;
+    return now;  // milliseconds
 }
 
 uint32_t get_timestamp_from_custom_epoch(void) {
-    uint64_t timestamp_us = current_unix_timestamp();
-    return (uint32_t)(timestamp_us - CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
+    return (uint32_t)current_unix_timestamp();
+    // CODE BELLOW TO USE WITH SNTP
+    // uint64_t timestamp_us = current_unix_timestamp();
+    // return (uint32_t)(timestamp_us - CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
 }
 
 /* *****************************************************************************

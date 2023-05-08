@@ -40,7 +40,9 @@ def start_handshake():
         seconds, milliseconds = divmod(custom_epoch_millis, 1000)
         custom_epoch = datetime.datetime.utcfromtimestamp(seconds)
         custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
-
+        # When not using sntp:
+        custom_epoch = datetime.datetime.now().timestamp() - custom_epoch.timestamp()
+        
         config = get_default_config()
         config.last_access = datetime.datetime.now()
         config.save()

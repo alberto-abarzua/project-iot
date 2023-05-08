@@ -17,7 +17,7 @@ if [ "$1" = "lint" ]; then
 
 # if menuconfig
 elif [ "$1" = "menuconfig" ]; then
-    python3 /usr/local/bin/generate_kconfig.py 
+    python3 /usr/local/bin/generate_kconfig.py
     if [ "$2" = "clean" ]; then
         echo "Cleaning build directory..."
         if [ -f sdkconfig ]; then
@@ -29,9 +29,8 @@ elif [ $# -eq 0 ]; then
 
     idf.py -p ${FLASH_PORT} monitor
 
-else 
+else
 
     idf.py -p ${FLASH_PORT} "$@"
 
 fi
-
