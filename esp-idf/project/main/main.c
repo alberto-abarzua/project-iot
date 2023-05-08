@@ -31,10 +31,6 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(example_connect());
 
-    // Initialize and synchronize the SNTP client
-    initialize_sntp();
-    wait_for_sntp_sync();
-
     get_mac_address(mac);
 
     char restart = '0';
