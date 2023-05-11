@@ -46,7 +46,7 @@ startup &
 case "$1" in
 menuconfig)
     echo "Running config"
-    docker compose run esp-idf menuconfig
+    docker compose run esp-idf menuconfig "$2"
     ;;
 monitor)
     echo "Running monitor"

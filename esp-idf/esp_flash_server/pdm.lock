@@ -71,7 +71,7 @@ summary = "Python 2 and 3 compatibility utilities"
 [metadata]
 lock_version = "4.2"
 groups = ["default"]
-content_hash = "sha256:2c4f47e5f2ad5f622eb261b85fe6a98cd7408667968770ae7d07999a5724424b"
+content_hash = "sha256:70da669c27167e3eb78b8b2d557f9af0940279bbc2962bdfa0b87e188f22d865"
 
 [metadata.files]
 "bitstring 4.0.2" = [

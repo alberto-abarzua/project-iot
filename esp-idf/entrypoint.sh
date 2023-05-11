@@ -18,6 +18,8 @@ if [ "$1" = "lint" ]; then
 # if menuconfig
 elif [ "$1" = "menuconfig" ]; then
     python3 /usr/local/bin/generate_kconfig.py
+    echo "Running menuconfig..."
+    echo "$2"
     if [ "$2" = "clean" ]; then
         echo "Cleaning build directory..."
         if [ -f sdkconfig ]; then
