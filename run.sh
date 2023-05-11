@@ -14,7 +14,7 @@ init_esp_flash_server() {
 build_flash_esp32() {
     sleep 2
     echo "Flashing ESP-32..."
-    docker compose run esp-idf build flash monitor
+    docker compose run esp-idf build flash
 
     if [ $? -eq 0 ]; then
         echo "ESP-32 flashed successfully."
