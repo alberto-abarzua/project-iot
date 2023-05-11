@@ -69,8 +69,9 @@ requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 summary = "Python 2 and 3 compatibility utilities"
 
 [metadata]
-lock_version = "4.1"
-content_hash = "sha256:e5981f6a972f0a2273a7e9e406494b309aeeaa787b4e6b0acd0bda2f0fe212c4"
+lock_version = "4.2"
+groups = ["default"]
+content_hash = "sha256:2c4f47e5f2ad5f622eb261b85fe6a98cd7408667968770ae7d07999a5724424b"
 
 [metadata.files]
 "bitstring 4.0.2" = [
