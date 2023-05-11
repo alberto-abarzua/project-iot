@@ -6,8 +6,8 @@ build/
 sdkconfig
 sdkconfig.old
 
-
 ### VisualStudioCode ###
+.vscode/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
