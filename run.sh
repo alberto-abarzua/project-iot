@@ -72,7 +72,7 @@ flash)
     if [ $? -eq 1 ]; then
         echo "Exiting due to flash failure."
     fi
-    docker compose up server db adminer esp-idf
+    docker compose run esp-idf monitor
     ;;
 *)
     echo "Running default"

@@ -64,7 +64,7 @@ services:
     stop_signal: SIGINT
     privileged: true
     extra_hosts:
-      - "host.docker.internal:${SESP_IPV4_ADDR}"
+      - "host.docker.internal:${ESP_FLASH_INTERNAL_IP}"
 
 volumes:
   db_data:
