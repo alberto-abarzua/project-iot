@@ -63,6 +63,8 @@ services:
     tty: true
     stop_signal: SIGINT
     privileged: true
+    extra_hosts:
+      - "host.docker.internal:127.0.0.1"
 
 volumes:
   db_data:
