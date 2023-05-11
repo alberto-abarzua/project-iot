@@ -2,6 +2,10 @@
 
 db/**
 
+build/
+sdkconfig
+sdkconfig.old
+
 
 ### VisualStudioCode ###
 .vscode/*
