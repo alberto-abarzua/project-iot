@@ -16,7 +16,7 @@
    - `ESP_FLASH_INTERNAL_IP`: The IP address of the host machine where the ESP is connected (used for flashing and monitoring)
    - `SESP_IPV4_ADDR`: The IP address that the ESP will target (IP of the Server).
    - `ESP_DEVICE_PORT`: The USB port to which the ESP is connected for flashing and monitoring. (The command "**ls /dev/tty**" can be used to identify in which USB port the ESP is plugged into. Might also need to run the command "**sudo chown <user> /dev/tty<USB_port_ESP>**" to give permission to the current user to use that port to flash and monitor de ESP)
-   - `ESP_FLASH_INTERNAL_IP`: This is the IP of the device that will flash the ESP.
+  
 
 3. After making these changes make sure to run the command "**./run.sh menuconfig**" to set these variables up in the sdkconfig file of the ESP.
 
