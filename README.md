@@ -46,3 +46,6 @@
 
 7. Go to http://localhost:8000/ to view the database in Adminer.
 
+## Basic Diagram of Project
+
+![Diagram](IoT_T1.jpg)
