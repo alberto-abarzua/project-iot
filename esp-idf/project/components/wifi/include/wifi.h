@@ -1,23 +1,26 @@
-#ifndef utils_h
-#define utils_h
+#ifndef wifi_h
+#define wifi_h
 // #include <arpa/inet.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <esp_sleep.h>
+#include <math.h>
 #include <netdb.h>
 #include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <math.h>
 
+#include "esp_event.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_netif.h"
 #include "freertos/task.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
+#include "protocol_examples_common.h"
 #include "sdkconfig.h"
-#include <esp_sleep.h>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -33,7 +36,8 @@
 
 extern uint16_t HEADER_LENGTH;
 extern uint64_t CUSTOM_GLOBAL_EPOCH_MICROSECONDS;
-
+extern uint8_t mac[6];
+extern uint16_t device_id;
 #pragma pack(push, 1)
 typedef struct hd_01234 {
     int16_t id_device;
@@ -94,7 +98,6 @@ void init_global_vars();
 uint32_t get_timestamp_from_custom_epoch(void);
 uint64_t current_unix_timestamp();
 
-
 char val1();
 char batt_level();
 char temp();
@@ -112,5 +115,5 @@ uint32_t rms();
 void accx(char *buf);
 void accy(char *buf);
 void accz(char *buf);
-
-#endif  // utils_h
+void main_wifi(void);
+#endif  // wifi_h
