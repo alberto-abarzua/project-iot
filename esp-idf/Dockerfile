@@ -1,5 +1,5 @@
 # Base image
-FROM espressif/idf:release-v5.1
+FROM espressif/idf:latest
 
 
 # sudo apt-get install cppcheck
