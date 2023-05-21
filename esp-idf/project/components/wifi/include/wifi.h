@@ -116,4 +116,5 @@ void accx(char *buf);
 void accy(char *buf);
 void accz(char *buf);
 void main_wifi(void);
+char *create_packet(int protocol_id, int *packet_size);
 #endif  // wifi_h

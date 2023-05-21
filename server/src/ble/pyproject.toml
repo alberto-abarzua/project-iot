@@ -10,6 +10,7 @@ authors = [
 dependencies = [
     "pexpect>=4.8.0",
     "bleak>=0.20.2",
+    "pygatt>=4.0.5",
 ]
 requires-python = ">=3.11"
 license = {text = "MIT"}

@@ -26,6 +26,11 @@ requires_python = ">=3.7,<4.0"
 summary = "A faster version of dbus-next"
 
 [[package]]
+name = "enum-compat"
+version = "0.0.3"
+summary = "enum/enum34 compatibility package"
+
+[[package]]
 name = "pexpect"
 version = "4.8.0"
 summary = "Pexpect allows easy control of interactive console applications."
@@ -37,6 +42,15 @@ dependencies = [
 name = "ptyprocess"
 version = "0.7.0"
 summary = "Run a subprocess in a pseudo terminal"
+
+[[package]]
+name = "pygatt"
+version = "4.0.5"
+summary = "Python Bluetooth LE (Low Energy) and GATT Library"
+dependencies = [
+    "enum-compat",
+    "pyserial",
+]
 
 [[package]]
 name = "pyobjc-core"
@@ -72,10 +86,15 @@ dependencies = [
     "pyobjc-core>=9.1.1",
 ]
 
+[[package]]
+name = "pyserial"
+version = "3.5"
+summary = "Python Serial Port Extension"
+
 [metadata]
 lock_version = "4.2"
 groups = ["default"]
-content_hash = "sha256:601abaeb19d2adfe2765f34f4612775da6bc0bfa86bc56854c05e3216e23c745"
+content_hash = "sha256:6d3ba34017dad899f44404aee2a639e4875a70ce86cc7711e843c621786228eb"
 
 [metadata.files]
 "bleak 0.20.2" = [
@@ -125,6 +144,10 @@ content_hash = "sha256:601abaeb19d2adfe2765f34f4612775da6bc0bfa86bc56854c05e3216
     {url = "https://files.pythonhosted.org/packages/ef/95/bbce30887784c4310cbb2cb75f51c2a54da8b7cbb8c54c6aa3a6da95b7e1/dbus_fast-1.86.0-cp38-cp38-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:ccb4c8eb62c5f7154a93f23e0d1cbd41146b0a48d7f3606bd4a659d87f90fc8a"},
     {url = "https://files.pythonhosted.org/packages/ef/98/049e59a6dcbd55643a19d66435b3c1570eb048640075c5e36ea1f0aae37b/dbus_fast-1.86.0-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:5b437411d4abd19190216d1113612069c2945a810f4a5db7c2af7ef3381d78ce"},
 ]
+"enum-compat 0.0.3" = [
+    {url = "https://files.pythonhosted.org/packages/41/46/8ed2368976d934652d8f33f1fdd86f5580fab45e890c90a848e83097a093/enum-compat-0.0.3.tar.gz", hash = "sha256:3677daabed56a6f724451d585662253d8fb4e5569845aafa8bb0da36b1a8751e"},
+    {url = "https://files.pythonhosted.org/packages/55/ae/467bc4509246283bb59746e21a1a2f5a8aecbef56b1fa6eaca78cd438c8b/enum_compat-0.0.3-py3-none-any.whl", hash = "sha256:88091b617c7fc3bbbceae50db5958023c48dc40b50520005aa3bf27f8f7ea157"},
+]
 "pexpect 4.8.0" = [
     {url = "https://files.pythonhosted.org/packages/39/7b/88dbb785881c28a102619d46423cb853b46dbccc70d3ac362d99773a78ce/pexpect-4.8.0-py2.py3-none-any.whl", hash = "sha256:0b48a55dcb3c05f3329815901ea4fc1537514d6ba867a152b581d69ae3710937"},
     {url = "https://files.pythonhosted.org/packages/e5/9b/ff402e0e930e70467a7178abb7c128709a30dfb22d8777c043e501bc1b10/pexpect-4.8.0.tar.gz", hash = "sha256:fc65a43959d153d0114afe13997d439c22823a27cefceb5ff35c2178c6784c0c"},
@@ -132,6 +155,9 @@ content_hash = "sha256:601abaeb19d2adfe2765f34f4612775da6bc0bfa86bc56854c05e3216
 "ptyprocess 0.7.0" = [
     {url = "https://files.pythonhosted.org/packages/20/e5/16ff212c1e452235a90aeb09066144d0c5a6a8c0834397e03f5224495c4e/ptyprocess-0.7.0.tar.gz", hash = "sha256:5c5d0a3b48ceee0b48485e0c26037c0acd7d29765ca3fbb5cb3831d347423220"},
     {url = "https://files.pythonhosted.org/packages/22/a6/858897256d0deac81a172289110f31629fc4cee19b6f01283303e18c8db3/ptyprocess-0.7.0-py2.py3-none-any.whl", hash = "sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35"},
+]
+"pygatt 4.0.5" = [
+    {url = "https://files.pythonhosted.org/packages/10/1a/adf63764143593430e21500d34f00b8ff133f0c43462bcb3a11f35cfa3e3/pygatt-4.0.5.tar.gz", hash = "sha256:7f4e0ec72f03533a3ef5fdd532f08d30ab7149213495e531d0f6580e9fcb1a7d"},
 ]
 "pyobjc-core 9.1.1" = [
     {url = "https://files.pythonhosted.org/packages/0b/0b/f13a4ff6bc4ef8eacd4a487e2892041f71fbd7abfbc6791c78a458e314a7/pyobjc_core-9.1.1-cp38-cp38-macosx_11_0_universal2.whl", hash = "sha256:1626909916603a3b04c07c721cf1af0e0b892cec85bb3db98d05ba024f1786fc"},
@@ -165,4 +191,8 @@ content_hash = "sha256:601abaeb19d2adfe2765f34f4612775da6bc0bfa86bc56854c05e3216
     {url = "https://files.pythonhosted.org/packages/b4/90/7dc4492c23594de751cf4313baf5c42c734cbb6a2d356f615aad6ce7923c/pyobjc_framework_libdispatch-9.1.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:844a05a6b6b28e24f569216adff368e88237185bfca83afa2405bf6f86b8ee74"},
     {url = "https://files.pythonhosted.org/packages/c9/92/efe9c9eb10fcb5810ea12864bfed1bd8320d5cd74bb8a461bc630459a0bc/pyobjc_framework_libdispatch-9.1.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:e6774ab26119a64a7cc9196cc151351aae456aebe92038e053804f72310a794a"},
     {url = "https://files.pythonhosted.org/packages/ec/41/b07052ee9b3ee5cb9cb5a48fa9394cd4e6f51b705b7bcba1aa2721697c77/pyobjc_framework_libdispatch-9.1.1-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:fd52fbfaad1a89296170c196f21ffb8470effae0fedfffbc8d2ce0836ca466ac"},
+]
+"pyserial 3.5" = [
+    {url = "https://files.pythonhosted.org/packages/07/bc/587a445451b253b285629263eb51c2d8e9bcea4fc97826266d186f96f558/pyserial-3.5-py2.py3-none-any.whl", hash = "sha256:c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0"},
+    {url = "https://files.pythonhosted.org/packages/1e/7d/ae3f0a63f41e4d2f6cb66a5b57197850f919f59e558159a4dd3a818f5082/pyserial-3.5.tar.gz", hash = "sha256:3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb"},
 ]
