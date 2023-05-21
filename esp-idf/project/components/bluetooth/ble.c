@@ -337,7 +337,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
             // char *customBuffer = "Hello, BLE!";
             int size_to_send = 18;
-            char *customBuffer = create_packet(0, &size_to_send);
+            char *customBuffer = create_packet(0, &size_to_send,'C');
             size_t bufferLen = size_to_send;
             rsp.attr_value.len = bufferLen;  // Set length to string length
             memcpy(rsp.attr_value.value, customBuffer,

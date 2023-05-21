@@ -4,9 +4,10 @@
 
 #include "wifi.h"
 #include "ble.h"
-
+#include "utils.h"
 
 void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
+    init_global_vars();
     main_ble();
 }

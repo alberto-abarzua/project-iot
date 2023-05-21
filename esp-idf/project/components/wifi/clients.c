@@ -8,8 +8,6 @@
  *                                                                             *
  *****************************************************************************/
 
-uint8_t mac[6];
-uint16_t device_id;
 
 int handshake(config_t *config, char restart, uint16_t device_id) {
     // Socket craetion
@@ -44,7 +42,7 @@ int handshake(config_t *config, char restart, uint16_t device_id) {
     offset += strlen(handshake_init);
     buf_to_send[strlen(handshake_init)] = restart;
     offset += 1;
-    memcpy(buf_to_send + offset, &device_id, sizeof(uint16_t));
+    memcpy(buf_to_send + offset, &DEVICE_ID, sizeof(uint16_t));
     offset += sizeof(uint16_t);
     memcpy(buf_to_send + offset, &CUSTOM_GLOBAL_EPOCH_MICROSECONDS,
            sizeof(uint64_t));
@@ -89,6 +87,43 @@ int handshake(config_t *config, char restart, uint16_t device_id) {
  *  *************** <><><><><><><><><><><><><><><><><><><><> *************    *
  *                                                                             *
  *****************************************************************************/
+
+int send_chunks_tcp(int sock, const char *buf, int size, int total) {
+    if (size <= 0) {
+        return -1;  // Invalid chunk size
+    }
+
+    int bytes_sent = 0;
+    while (bytes_sent < total) {
+        int remaining_bytes = total - bytes_sent;
+        int chunk_size = remaining_bytes < size ? remaining_bytes : size;
+        const char *chunk_ptr = buf + bytes_sent;
+
+        int sent = 0;
+        while (sent < chunk_size) {
+            int ret = send(sock, chunk_ptr + sent, chunk_size - sent, 0);
+            if (ret < 0) {
+                return ret;  // Send error
+            }
+            sent += ret;
+        }
+        bytes_sent += sent;
+    }
+
+    return bytes_sent;  // Total bytes sent
+}
+
+int send_pakcet_tcp(int sock, int protocol_id) {
+    int size_to_send = 0;
+    char *buffer = create_packet(protocol_id, &size_to_send,'T');
+    if (buffer == NULL) return -1;
+    ESP_LOGI(TAG, "Sending packet of size %d", size_to_send);
+    int err = send_chunks_tcp(sock, buffer, 1024, size_to_send);
+
+    free(buffer);
+    ESP_LOGI(TAG, "Packe Sent!");
+    return err;
+}
 void tcp_client(int protocol_id) {
     ESP_LOGI(TAG, "TCP Client Started");
 
@@ -143,6 +178,45 @@ void tcp_client(int protocol_id) {
  *                                                                             *
  *****************************************************************************/
 
+int send_chunks_udp(int sock, const char *buf, int size, int total,
+                    struct sockaddr_in *addr) {
+    if (size <= 0) {
+        return -1;  // Invalid chunk size
+    }
+    int bytes_sent = 0;
+    while (bytes_sent < total) {
+        int remaining_bytes = total - bytes_sent;
+        int chunk_size = remaining_bytes < size ? remaining_bytes : size;
+        if (bytes_sent == 0) {
+            chunk_size = 12;
+        }
+        const char *chunk_ptr = buf + bytes_sent;
+
+        int ret = sendto(sock, chunk_ptr, chunk_size, 0,
+                         (struct sockaddr *)addr, sizeof(*addr));
+        if (ret < 0) {
+            return ret;  // Send error
+        }
+        bytes_sent += ret;
+    }
+
+    return bytes_sent;  // Total bytes sent
+}
+
+int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id) {
+    int size_to_send = 0;
+    char *buffer = create_packet(protocol_id, &size_to_send,'U');
+    if (buffer == NULL) return -1;
+    ESP_LOGI(TAG, "Sending packet of size %d", size_to_send);
+    // log address and port
+    ESP_LOGI(TAG, "Sending to %s:%d", inet_ntoa(in_addr->sin_addr),
+             ntohs(in_addr->sin_port));
+    int err = send_chunks_udp(sock, buffer, 1024, size_to_send, in_addr);
+    free(buffer);
+    ESP_LOGI(TAG, "Packee Sen? %d", err);
+    return err;
+}
+
 void udp_client(int protocol_id) {
     // char rx_buffer[1024];
     ESP_LOGI(TAG, "UDP Client Started ON %d", UDP_PORT);
@@ -191,36 +265,20 @@ void udp_client(int protocol_id) {
  *                                                                             *
  *****************************************************************************/
 
-void get_mac_address(uint8_t *mac) {
-    int err = esp_efuse_mac_get_default(mac);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Error getting MAC address: %d", err);
-        return;
-    }
-
-    ESP_LOGI(TAG, "MAC address: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1],
-             mac[2], mac[3], mac[4], mac[5]);
-}
-void generate_device_id(const uint8_t *mac, uint16_t *device_id) {
-    *device_id = (mac[0] ^ mac[3]) | ((mac[1] ^ mac[4]) << 8) |
-                 ((mac[2] ^ mac[5]) << 16);
-}
 
 void main_wifi(void) {
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(example_connect());
 
-    get_mac_address(mac);
-
     char restart = '0';
-    generate_device_id(mac, &device_id);
-    ESP_LOGI(TAG, "\n\nDevice ID: %d!\n\n", device_id);
+
+    ESP_LOGI(TAG, "\n\nDevice ID: %d!\n\n", DEVICE_ID);
 
     while (1) {
         config_t config;
         init_global_vars();
-        handshake(&config, restart, device_id);
+        handshake(&config, restart, DEVICE_ID);
         restart = '1';
         if (config.trans_layer == 'U') {
             udp_client(config.protocol_id);
