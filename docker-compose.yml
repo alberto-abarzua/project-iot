@@ -7,7 +7,7 @@ services:
       - ./server/src/:/app/src/
       - ./server/pdm.lock:/app/pdm.lock
       - ./server/pyproject.toml:/app/pyproject.toml
-    command: pdm run python src/main_server.py
+    command: pdm run python src/main.py
     depends_on:
       - db
     environment:

@@ -1,7 +1,7 @@
 import struct
 from struct import unpack
 
-from exceptions import LossException
+from utils.exceptions import LossException
 
 
 class PacketParser:

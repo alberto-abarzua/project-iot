@@ -4,9 +4,9 @@ import socket
 import sys
 import threading
 
-from exceptions import LossException
-from models import Data, Logs, Loss, get_default_config, get_last_log
-from packet_parser import PacketParser
+from utils.exceptions import LossException
+from utils.models import Data, Logs, Loss,DatabaseManager
+from utils.packet_parser import PacketParser
 
 
 TIMEOUT_TOLERANCE = 10
@@ -43,7 +43,7 @@ def start_handshake():
         # When not using sntp:
         custom_epoch = datetime.datetime.now().timestamp() - custom_epoch.timestamp()
         
-        config = get_default_config()
+        config = DatabaseManager().get_default_config()
         config.last_access = datetime.datetime.now()
         config.save()
         to_send_text = config.transport_layer + str(config.id_protocol)
@@ -75,7 +75,7 @@ def start_handshake():
 
 def save_to_db(headers, body):
     new_entry = Data.create()
-    custom_epoch = get_last_log().custom_epoch
+    custom_epoch = DatabaseManager().get_last_log().custom_epoch
     id_device, mac, transport_layer, id_protocol, message_length = headers
     val, batt_level, timestamp = body[:3]
     new_entry.id_device = id_device
