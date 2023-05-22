@@ -1,33 +1,6 @@
 version: "3.8"
 
 services:
-  server:
-    build: ./server
-    volumes:
-      - ./server/src/:/app/src/
-      - ./server/pdm.lock:/app/pdm.lock
-      - ./server/pyproject.toml:/app/pyproject.toml
-    command: pdm run python src/main.py
-    depends_on:
-      - db
-    environment:
-      - POSTGRES_NAME
-      - POSTGRES_USER
-      - POSTGRES_PASSWORD
-      - POSTGRES_DB
-      - POSTGRES_PORT
-      - POSTGRES_HOST
-      - SESP_PORT_HANDSHAKE
-      - SESP_PORT_TCP
-      - SESP_PORT_UDP
-      - SESP_UDP_TIMEOUT
-      - SESP_TCP_TIMEOUT
-      - DEBUG
-    ports:
-      - ${SESP_PORT_TCP}:${SESP_PORT_TCP}
-      - ${SESP_PORT_HANDSHAKE}:${SESP_PORT_HANDSHAKE}
-      - ${SESP_PORT_UDP}:${SESP_PORT_UDP}/udp
-
   db:
     image: postgres:15.2-alpine
     environment:
@@ -37,34 +10,13 @@ services:
       - POSTGRES_DB
     volumes:
       - db_data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
 
   adminer:
     image: adminer
     ports:
       - 8080:8080
-
-  esp-idf:
-    build: ./esp-idf
-    volumes:
-      - ./esp-idf/project/:/workspace
-      - ./esp-idf/entrypoint.sh:/entrypoint.sh
-    command: monitor
-    environment:
-      - SESP_PORT_HANDSHAKE
-      - SESP_PORT_TCP
-      - SESP_PORT_UDP
-      - SESP_UDP_TIMEOUT
-      - SESP_TCP_TIMEOUT
-      - ESP_DEVICE_PORT
-      - ESP_DEVICE_BAUDRATE
-      - ESP_RFC2217_PORT
-      - SESP_IPV4_ADDR
-    entrypoint: /entrypoint.sh
-    tty: true
-    stop_signal: SIGINT
-    privileged: true
-    extra_hosts:
-      - "host.docker.internal:${ESP_FLASH_INTERNAL_IP}"
 
 volumes:
   db_data:

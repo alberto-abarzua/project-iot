@@ -48,4 +48,4 @@
 
 ## Basic Diagram of Project
 
-![Diagram](photos/IoT_T1.jpg)
+![Diagram](readme_photos/IoT_T1.jpg)

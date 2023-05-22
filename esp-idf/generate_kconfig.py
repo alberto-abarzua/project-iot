@@ -27,12 +27,6 @@ def convert_to_int_if_int(str_int):
         return str_int
 
 
-def convert_to_int_if_int(str_int):
-    try:
-        return int(str_int)
-    except ValueError:
-        return str_int
-
 
 def main():
     kconfig_template = '''
@@ -70,27 +64,3 @@ if __name__ == "__main__":
     main()
     print("Done transfering env vars to Kconfig.projbuild")
 
-
-# import os
-
-
-# def read_env():
-#     env_vars = {}
-#     for key, value in os.environ.items():
-#         value = convert_to_int_if_int(value)
-#         if key.startswith("SESP_"):
-#             key = key[5:]
-#             env_vars[key] = value
-
-#     return env_vars
-
-# def update_sdkconfig_defaults(env_vars, sdkconfig_defaults_path):
-#     with open(sdkconfig_defaults_path, 'w') as f:
-#         for key, value in env_vars.items():
-#             f.write(f'CONFIG_{key}={wrap(value)}\n')
-#         print(f"Updated {sdkconfig_defaults_path} with environment variables")
-
-# if __name__ == '__main__':
-#     sdkconfig_defaults_path = '/workspace/sdkconfig.defaults'
-#     env_vars = read_env()
-#     update_sdkconfig_defaults(env_vars, sdkconfig_defaults_path)

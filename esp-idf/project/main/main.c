@@ -9,5 +9,6 @@
 void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
     init_global_vars();
-    main_ble();
+    main_wifi();
+    // main_ble();
 }
