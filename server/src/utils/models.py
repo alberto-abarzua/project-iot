@@ -92,12 +92,8 @@ class Config(Model):
         database = db
 
 
-
 class DatabaseManager:
-
-
     MODELS = [Data, Logs, Config, Loss]
-
 
     def db_init(self):
         db.connect()
@@ -109,14 +105,11 @@ class DatabaseManager:
             pass
         db.create_tables(self.MODELS)
 
-
     def db_close(self):
         db.close()
 
-
     def get_last_log(self):
         return Logs.select().order_by(Logs.id.desc()).get()
-
 
     def get_default_config(self):
         config, _ = Config.get_or_create(

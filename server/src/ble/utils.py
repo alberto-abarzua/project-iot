@@ -1,9 +1,7 @@
-import asyncio
-from struct import unpack
-import asyncio
-from bleak import BleakClient, BleakScanner
 from abc import ABC, abstractmethod
+from struct import unpack
 
+from bleak import BleakClient, BleakScanner
 
 
 class BleHandshake:
@@ -11,28 +9,26 @@ class BleHandshake:
         self.client = client
         self.context = context
 
-
     async def run(self):
         # send to esp connect request and config
         first_msg = b"con"
-        first_msg += b"C"# "D" for discontinuous, "C" for continuous
-        first_msg += b"1" # protocol id
+        first_msg += b"C"  # "D" for discontinuous, "C" for continuous
+        first_msg += b"1"  # protocol id
         print("Sending connect request")
-        await self.client.write_gatt_char(self.context.characteristic_uuid,first_msg)
+        await self.client.write_gatt_char(self.context.characteristic_uuid, first_msg)
 
 
 class ReadData:
-    def __init__(self,context,client):
+    def __init__(self, context, client):
         self.client = client
         self.context = context
-    
+
     async def run(self):
         data = await self.client.read_gatt_char(self.context.characteristic_uuid)
         ptr = "<bbi"
-        print("Received length: ",len(data))
-        print("Received data: ",data)
-        print(unpack(ptr,data))
-
+        print("Received length: ", len(data))
+        print("Received data: ", data)
+        print(unpack(ptr, data))
 
 
 class DeviceState(ABC):
@@ -40,10 +36,12 @@ class DeviceState(ABC):
     async def handle(self, context):
         pass
 
+
 class DisconnectedState(DeviceState):
     async def handle(self, context):
         context.state = self
         print("Device is disconnected")
+
 
 class ConnectingState(DeviceState):
     async def handle(self, context):
@@ -53,7 +51,7 @@ class ConnectingState(DeviceState):
         devices = await scanner.discover()
         print("Discovered devices:")
         [print(device) for device in devices]
-        print('\n\n')
+        print("\n\n")
         for device in devices:
             if device.name == context.device_name:
                 print(f"Device found: {device}")
@@ -61,6 +59,7 @@ class ConnectingState(DeviceState):
                 await client.connect()
                 print("Connected!")
                 return client
+
 
 class ConnectedState(DeviceState):
     async def handle(self, context, client):
@@ -70,7 +69,7 @@ class ConnectedState(DeviceState):
 
 
 class BleManager:
-    def __init__(self,device_name,characteristic_uuid):
+    def __init__(self, device_name, characteristic_uuid):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
@@ -88,7 +87,3 @@ class BleManager:
             await self.transition_to(ConnectedState(), client)
             await client.disconnect()
             await self.transition_to(DisconnectedState())
-
-
-
-

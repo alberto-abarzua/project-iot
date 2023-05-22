@@ -1,5 +1,7 @@
-from ble.utils import BleManager
 import asyncio
+
+from ble.utils import BleManager
+
 
 class BleClient:
     def run(self):
@@ -7,4 +9,3 @@ class BleClient:
         CHARACTERISTIC_UUID = "0000ff01-0000-1000-8000-00805F9B34FB"
         device_manager = BleManager(DEVICE_NAME, CHARACTERISTIC_UUID)
         asyncio.run(device_manager.run())
-

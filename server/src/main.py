@@ -1,8 +1,9 @@
-from wifi.main_server import WifiServer
 from ble.main_client import BleClient
-
+from wifi.main_server import WifiServer
 
 MODE = "BLE"
+
+
 def main():
     print("Starting using", MODE)
     if MODE == "BLE":
@@ -15,4 +16,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -5,9 +5,8 @@ import sys
 import threading
 
 from utils.exceptions import LossException
-from utils.models import Data, Logs, Loss,DatabaseManager
+from utils.models import Data, DatabaseManager, Logs, Loss
 from utils.packet_parser import PacketParser
-
 
 TIMEOUT_TOLERANCE = 10
 
@@ -31,7 +30,7 @@ def start_handshake():
     data = client_socket.recv(1024)
     if b"hb" in data:
         id_device = data[3:5]
-        custom_epoch = data[5: 5 + 8]
+        custom_epoch = data[5 : 5 + 8]
         # convert to int
         id_device = int.from_bytes(id_device, byteorder="little")
         custom_epoch_millis = int.from_bytes(custom_epoch, byteorder="little")
@@ -42,7 +41,7 @@ def start_handshake():
         custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
         # When not using sntp:
         custom_epoch = datetime.datetime.now().timestamp() - custom_epoch.timestamp()
-        
+
         config = DatabaseManager().get_default_config()
         config.last_access = datetime.datetime.now()
         config.save()
@@ -60,8 +59,8 @@ def start_handshake():
         log = Logs.create(
             timestamp=datetime.datetime.now(),
             id_device=id_device,
-            transport_layer=get_default_config().transport_layer,
-            id_protocol=get_default_config().id_protocol,
+            transport_layer=DatabaseManager().get_default_config().transport_layer,
+            id_protocol=DatabaseManager().get_default_config().id_protocol,
             custom_epoch=custom_epoch,
         )
         log.save()
@@ -92,7 +91,7 @@ def save_to_db(headers, body):
     # add custom epoch (mili seconds)
     new_entry.timestamp = timestamp
     if id_protocol >= 1:
-        temp, press, hum, Co = body[3: 3 + 4]
+        temp, press, hum, Co = body[3 : 3 + 4]
         new_entry.temp = temp
         new_entry.press = press
         new_entry.hum = hum
@@ -159,7 +158,7 @@ def recv_headers_tcp(socket):
 def server_tcp():
     start_time = datetime.datetime.now()
     # copy of config
-    start_config = get_default_config()
+    start_config = DatabaseManager().get_default_config()
     start_layer = start_config.transport_layer
     start_protocol = start_config.id_protocol
 
@@ -174,11 +173,12 @@ def server_tcp():
     while True:
         client_socket, client_address = server_socket.accept()
         client_socket.settimeout(
-            (int(os.environ.get("SESP_TCP_TIMEOUT")) // 1000) + TIMEOUT_TOLERANCE)
+            (int(os.environ.get("SESP_TCP_TIMEOUT")) // 1000) + TIMEOUT_TOLERANCE
+        )
         print("Connection from: ", client_address)
         parser = PacketParser()
         while True:
-            cur_config = get_default_config()
+            cur_config = DatabaseManager().get_default_config()
             recently_accesed = cur_config.was_recently_accessed(start_time)
             changed = cur_config.was_changed(start_layer, start_protocol)
             if recently_accesed or changed:
@@ -250,7 +250,7 @@ def recv_in_chunks_udp(socket, total, chunk_size=1024):
 def server_udp():
     start_time = datetime.datetime.now()
     # copy of config
-    start_config = get_default_config()
+    start_config = DatabaseManager().get_default_config()
     start_layer = start_config.transport_layer
     start_protocol = start_config.id_protocol
 
@@ -260,12 +260,14 @@ def server_udp():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("0.0.0.0", int(SESP_PORT_UDP)))
-    server_socket.settimeout(int(os.environ.get("SESP_UDP_TIMEOUT")) // 1000 + TIMEOUT_TOLERANCE)
+    server_socket.settimeout(
+        int(os.environ.get("SESP_UDP_TIMEOUT")) // 1000 + TIMEOUT_TOLERANCE
+    )
     print("Server is listening on port: ", SESP_PORT_UDP)
     while True:
         parser = PacketParser()
         while True:
-            cur_config = get_default_config()
+            cur_config = DatabaseManager().get_default_config()
             recently_accesed = cur_config.was_recently_accessed(start_time)
             changed = cur_config.was_changed(start_layer, start_protocol)
             if recently_accesed or changed:
