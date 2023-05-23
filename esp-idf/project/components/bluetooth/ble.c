@@ -160,6 +160,8 @@ static struct gatts_profile_inst gl_profile_tab[PROFILE_NUM] = {
         .gatts_cb = gatts_profile_a_event_handler,
         .gatts_if = ESP_GATT_IF_NONE, /* Not get the gatt_if, so initial is
                                          ESP_GATT_IF_NONE */
+        .property = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE |
+                    ESP_GATT_CHAR_PROP_BIT_NOTIFY,
     }};
 
 typedef struct {
@@ -272,6 +274,43 @@ void example_write_event_env(esp_gatt_if_t gatts_if,
     }
 }
 
+esp_err_t set_characteristic_value(uint16_t char_handle, const uint8_t *value,
+                                   uint16_t length) {
+    esp_err_t status = esp_ble_gatts_set_attr_value(char_handle, length, value);
+
+    if (status == ESP_GATT_OK) {
+        printf("Characteristic value set successfully.\n");
+    } else {
+        printf("Failed to set characteristic value, error: %d\n", status);
+    }
+
+    return status;
+}
+
+esp_err_t get_characteristic_value(uint16_t char_handle, uint8_t **result,
+                                   uint16_t *length) {
+    const uint8_t *value;
+    esp_err_t status =
+        esp_ble_gatts_get_attr_value(char_handle, length, &value);
+
+    if (status == ESP_GATT_OK) {
+        *result = (uint8_t *)malloc(
+            *length +
+            1);  // Allocate memory for string, including null-terminator
+        if (*result != NULL) {
+            memcpy(*result, value, *length);  // Copy the data
+            (*result)[*length] = '\0';        // Null-terminate the string
+            printf("Characteristic value: %s\n", (char *)*result);
+        } else {
+            printf("Failed to allocate memory for the characteristic value\n");
+        }
+    } else {
+        printf("Could not get characteristic value, error: %d\n", status);
+    }
+
+    return status;
+}
+
 void example_exec_write_event_env(prepare_type_env_t *prepare_write_env,
                                   esp_ble_gatts_cb_param_t *param) {
     if (param->exec_write.exec_write_flag == ESP_GATT_PREP_WRITE_EXEC) {
@@ -337,7 +376,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
             // char *customBuffer = "Hello, BLE!";
             int size_to_send = 18;
-            char *customBuffer = create_packet(0, &size_to_send,'C');
+            char *customBuffer = create_packet(0, &size_to_send, 'C');
             size_t bufferLen = size_to_send;
             rsp.attr_value.len = bufferLen;  // Set length to string length
             memcpy(rsp.attr_value.value, customBuffer,
@@ -402,12 +441,14 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                 }
             }
             char *expected_con_init_msg = "con";
-            ESP_LOGI(GATTS_TAG, "CMSH");
             if (strncmp((char *)param->write.value, expected_con_init_msg, 3) ==
                 0) {
                 ESP_LOGI(GATTS_TAG, "Connection Init Message Received");
                 ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :%s",
                          param->write.len, param->write.value);
+                set_characteristic_value(
+                    gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+                    param->write.value, param->write.len);
             }
             example_write_event_env(gatts_if, &a_prepare_write_env, param);
             break;
@@ -584,6 +625,29 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
     } while (0);
 }
 
+void notify_data_available() {
+    // check if connected
+    if (gl_profile_tab[PROFILE_A_APP_ID].conn_id ==
+        0xFF) {  // assuming 0xFF is default when not connected
+        ESP_LOGE(GATTS_TAG, "Not connected to a client");
+        return;
+    }
+
+    // sends a notification to the client
+    char *notify_data = "CHK_DATA";
+    size_t len = strlen(notify_data);
+    esp_err_t ret = esp_ble_gatts_send_indicate(
+        gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
+        gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+        gl_profile_tab[PROFILE_A_APP_ID].char_handle, len,
+        (uint8_t *)notify_data, false);
+
+    if (ret) {
+        ESP_LOGE(GATTS_TAG, "Send indicate error");
+    } else {
+        ESP_LOGI(GATTS_TAG, "Send indicate success");
+    }
+}
 void main_ble(void) {
     esp_err_t ret;
 
@@ -638,9 +702,23 @@ void main_ble(void) {
                  local_mtu_ret);
     }
     while (1) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        ESP_LOGI(GATTS_TAG, "HELLO\n");
-    }
+        uint8_t *value_ptr = NULL;
+        uint16_t value_length = 0;
+        esp_err_t status = get_characteristic_value(
+            gl_profile_tab[PROFILE_A_APP_ID].char_handle, &value_ptr,
+            &value_length);
 
-    return;
+        if (status == ESP_GATT_OK) {
+            char *expected_string = "con";
+            // pprint the value
+            ESP_LOGI(GATTS_TAG, "Received value: %s", value_ptr);
+            if (strncmp((char *)value_ptr, expected_string, 3) == 0) {
+                ESP_LOGI(GATTS_TAG, "Received expected string");
+                notify_data_available();
+            }
+            free(value_ptr);
+        }
+
+        vTaskDelay(7000 / portTICK_PERIOD_MS);
+    }
 }

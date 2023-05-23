@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from struct import unpack
 
 from bleak import BleakClient, BleakScanner
-
+import asyncio
 
 class BleHandshake:
     def __init__(self, context, client):
@@ -10,12 +9,12 @@ class BleHandshake:
         self.context = context
 
     async def run(self):
-        # send to esp connect request and config
         first_msg = b"con"
         first_msg += b"C"  # "D" for discontinuous, "C" for continuous
         first_msg += b"1"  # protocol id
         print("Sending connect request")
         await self.client.write_gatt_char(self.context.characteristic_uuid, first_msg)
+        print("Sent connect request")
 
 
 class ReadData:
@@ -28,7 +27,7 @@ class ReadData:
         ptr = "<bbi"
         print("Received length: ", len(data))
         print("Received data: ", data)
-        print(unpack(ptr, data))
+        # print(unpack(ptr, data))
 
 
 class DeviceState(ABC):
@@ -59,13 +58,35 @@ class ConnectingState(DeviceState):
                 await client.connect()
                 print("Connected!")
                 return client
-
+        print("Device not found")
+        print("Trying again...")
+        await context.transition_to(ConnectingState())
 
 class ConnectedState(DeviceState):
+    def __init__(self):
+        self.data_available = False
+
+    def notify_callback(self, sender, data):
+        expected_data = b"CHK_DATA"
+        if data == expected_data:
+            print("Notification received - data available")
+            self.data_available = True
+
+
     async def handle(self, context, client):
         context.state = self
+        print("Device is connected")
         await BleHandshake(context, client).run()
-        await ReadData(context, client).run()
+        await asyncio.sleep(5)
+        print("setting up notifications")
+        await client.start_notify(context.characteristic_uuid, self.notify_callback)
+        while True:
+            await asyncio.sleep(1)
+            if self.data_available:
+                await ReadData(context, client).run()
+                self.data_available = False
+              
+           
 
 
 class BleManager:
