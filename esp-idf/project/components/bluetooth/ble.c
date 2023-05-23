@@ -637,6 +637,10 @@ void main_ble(void) {
         ESP_LOGE(GATTS_TAG, "set local  MTU failed, error code = %x",
                  local_mtu_ret);
     }
+    while (1) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        ESP_LOGI(GATTS_TAG, "HELLO\n");
+    }
 
     return;
 }
