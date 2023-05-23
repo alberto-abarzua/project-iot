@@ -24,16 +24,13 @@ db = PostgresqlDatabase(
 
 class Data(Model):
     id = AutoField()
-    # headers
     id_device = IntegerField(null=True)
     mac = CharField(null=True)
     transport_layer = CharField(null=True)
     id_protocol = CharField(null=True)
     message_length = IntegerField(null=True)
-    # body all fields default null
     val = CharField(null=True)
     batt_level = CharField(null=True)
-    # microsecnosd
     timestamp = TimestampField(resolution=3, null=True)
     temp = CharField(null=True)
     press = IntegerField(null=True)
@@ -46,7 +43,6 @@ class Data(Model):
     FREQ_Y = IntegerField(null=True)
     AMP_Z = IntegerField(null=True)
     FREQ_Z = IntegerField(null=True)
-    # FOR PROTOCOL null = True4
     ACC_X = BlobField(null=True)
     ACC_Y = BlobField(null=True)
     ACC_Z = BlobField(null=True)
@@ -57,7 +53,6 @@ class Data(Model):
 
 class Loss(Model):
     id = AutoField()
-    # forgien key to data
     data = ForeignKeyField(Data, backref="losses", null=True)
     bytes_lost = IntegerField()
     latency = IntegerField(null=True)
@@ -68,7 +63,6 @@ class Loss(Model):
 
 class Logs(Model):
     id = AutoField()
-    # forgien key to data
     timestamp = TimestampField(resolution=3, null=True)
     id_device = IntegerField()
     transport_layer = CharField()
@@ -83,11 +77,10 @@ class Config(Model):
     config_name = CharField(unique=True, primary_key=True)
     id_protocol = CharField()
     transport_layer = CharField()
-    #  last access time
     last_access = DateTimeField()
 
     def was_recently_accessed(self, time_ref):
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         recent_acess = (now - self.last_access).total_seconds() < 60
         away_from_time_ref = (now - time_ref).total_seconds() > 90
         return recent_acess and away_from_time_ref
@@ -99,35 +92,37 @@ class Config(Model):
         database = db
 
 
-MODELS = [Data, Logs, Config, Loss]
+class DatabaseManager:
+    MODELS = [Data, Logs, Config, Loss]
 
+    def db_init(self):
+        print("Initializing database")
+        db.connect()
+        print("getting default config")
+        print(self.get_default_config())
 
-def db_init():
-    db.connect()
-    try:
-        if os.environ.get("DEBUG"):
-            db.drop_tables(MODELS)
-    except Exception as e:
-        print(e)
-        pass
-    db.create_tables(MODELS)
+        # try:
+        #     db.drop_tables(self.MODELS)
+        # except Exception as e:
+        #     print(e)  
+        #     pass
+        db.create_tables(self.MODELS)
 
+    def db_close(self):
+        db.close()
 
-def db_close():
-    db.close()
+    def get_last_log(self):
+        res = Logs.select().order_by(Logs.id.desc()).get()
+        print("last log",res.timestamp.timestamp(),res.custom_epoch.timestamp())
+        return res
 
-
-def get_last_log():
-    return Logs.select().order_by(Logs.id.desc()).get()
-
-
-def get_default_config():
-    config, _ = Config.get_or_create(
-        config_name="default",
-        defaults={
-            "id_protocol": 4,
-            "transport_layer": "U",
-            "last_access": datetime.datetime.now(),
-        },
-    )
-    return config
+    def get_default_config(self):
+        config, _ = Config.get_or_create(
+            config_name="default",
+            defaults={
+                "id_protocol": 4,
+                "transport_layer": "U",
+                "last_access": datetime.datetime.utcnow(),
+            },
+        )
+        return config

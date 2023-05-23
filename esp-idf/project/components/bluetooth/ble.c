@@ -13,7 +13,6 @@
  *
  ****************************************************************************/
 
-
 #include "ble.h"
 
 #define GATTS_TAG "GATTS_DEMO"
@@ -336,9 +335,10 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                 param->read.conn_id, param->read.trans_id, param->read.handle);
             esp_gatt_rsp_t rsp;
             memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
-            char *customBuffer = "Hello, BLE!";
-            size_t bufferLen =
-                strlen(customBuffer);        // Get length of the string
+            // char *customBuffer = "Hello, BLE!";
+            int size_to_send = 18;
+            char *customBuffer = create_packet(0, &size_to_send,'C');
+            size_t bufferLen = size_to_send;
             rsp.attr_value.len = bufferLen;  // Set length to string length
             memcpy(rsp.attr_value.value, customBuffer,
                    bufferLen);  // Copy string to value field
@@ -346,6 +346,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
                                         param->read.trans_id, ESP_GATT_OK,
                                         &rsp);
+            free(customBuffer);
             break;
         }
         case ESP_GATTS_WRITE_EVT: {
@@ -400,8 +401,14 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                     }
                 }
             }
-            ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :%s",
-                     param->write.len, param->write.value);
+            char *expected_con_init_msg = "con";
+            ESP_LOGI(GATTS_TAG, "CMSH");
+            if (strncmp((char *)param->write.value, expected_con_init_msg, 3) ==
+                0) {
+                ESP_LOGI(GATTS_TAG, "Connection Init Message Received");
+                ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :%s",
+                         param->write.len, param->write.value);
+            }
             example_write_event_env(gatts_if, &a_prepare_write_env, param);
             break;
         }
@@ -448,11 +455,11 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             uint16_t length = 0;
             const uint8_t *prf_char;
 
-            ESP_LOGI(
-                GATTS_TAG,
-                "ADD_CHAR_EVT, status %d,  attr_handle %d, service_handle %d\n",
-                param->add_char.status, param->add_char.attr_handle,
-                param->add_char.service_handle);
+            ESP_LOGI(GATTS_TAG,
+                     "ADD_CHAR_EVT, status %d,  attr_handle %d, "
+                     "service_handle %d\n",
+                     param->add_char.status, param->add_char.attr_handle,
+                     param->add_char.service_handle);
             gl_profile_tab[PROFILE_A_APP_ID].char_handle =
                 param->add_char.attr_handle;
             gl_profile_tab[PROFILE_A_APP_ID].descr_uuid.len = ESP_UUID_LEN_16;
@@ -481,11 +488,12 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
         case ESP_GATTS_ADD_CHAR_DESCR_EVT:
             gl_profile_tab[PROFILE_A_APP_ID].descr_handle =
                 param->add_char_descr.attr_handle;
-            ESP_LOGI(
-                GATTS_TAG,
-                "ADD_DESCR_EVT, status %d, attr_handle %d, service_handle %d\n",
-                param->add_char_descr.status, param->add_char_descr.attr_handle,
-                param->add_char_descr.service_handle);
+            ESP_LOGI(GATTS_TAG,
+                     "ADD_DESCR_EVT, status %d, attr_handle %d, "
+                     "service_handle %d\n",
+                     param->add_char_descr.status,
+                     param->add_char_descr.attr_handle,
+                     param->add_char_descr.service_handle);
             break;
         case ESP_GATTS_DELETE_EVT:
             break;
@@ -500,8 +508,9 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             esp_ble_conn_update_params_t conn_params = {0};
             memcpy(conn_params.bda, param->connect.remote_bda,
                    sizeof(esp_bd_addr_t));
-            /* For the IOS system, please reference the apple official documents
-             * about the ble connection parameters restrictions. */
+            /* For the IOS system, please reference the apple official
+             * documents about the ble connection parameters restrictions.
+             */
             conn_params.latency = 0;
             conn_params.max_int = 0x20;  // max_int = 0x20*1.25ms = 40ms
             conn_params.min_int = 0x10;  // min_int = 0x10*1.25ms = 20ms
@@ -514,7 +523,8 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                      param->connect.remote_bda[3], param->connect.remote_bda[4],
                      param->connect.remote_bda[5]);
             gl_profile_tab[PROFILE_A_APP_ID].conn_id = param->connect.conn_id;
-            // start sent the update connection parameters to the peer device.
+            // start sent the update connection parameters to the peer
+            // device.
             esp_ble_gap_update_conn_params(&conn_params);
             break;
         }
@@ -563,8 +573,8 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         for (idx = 0; idx < PROFILE_NUM; idx++) {
             if (gatts_if ==
                     ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a
-                                           certain gatt_if, need to call every
-                                           profile cb function */
+                                           certain gatt_if, need to call
+                                           every profile cb function */
                 gatts_if == gl_profile_tab[idx].gatts_if) {
                 if (gl_profile_tab[idx].gatts_cb) {
                     gl_profile_tab[idx].gatts_cb(event, gatts_if, param);
@@ -626,6 +636,10 @@ void main_ble(void) {
     if (local_mtu_ret) {
         ESP_LOGE(GATTS_TAG, "set local  MTU failed, error code = %x",
                  local_mtu_ret);
+    }
+    while (1) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        ESP_LOGI(GATTS_TAG, "HELLO\n");
     }
 
     return;

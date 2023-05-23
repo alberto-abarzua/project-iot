@@ -1,83 +1,58 @@
-#!/bin/sh
+#!/bin/bash
 
 # Load the .env file
 export $(grep -v '^#' .env | xargs)
 
-init_esp_flash_server() {
-    cd ./esp-idf/esp_flash_server
-    ls -la
-    pdm install
-    pdm run python esp_rfc2217_server.py -p ${ESP_RFC2217_PORT} ${ESP_DEVICE_PORT}
-}
-
-# Function to flash the ESP-32
-build_flash_esp32() {
-    sleep 2
-    echo "Flashing ESP-32..."
-    docker compose run esp-idf build flash
-
-    if [ $? -eq 0 ]; then
-        echo "ESP-32 flashed successfully."
-        return 0
-    else
-        echo "Failed to flash ESP-32."
-        return 1
-    fi
-}
-
 # Function to clean up on exit
 cleanup() {
     echo "Cleaning up..."
+    kill $DC_PID
+
     docker compose down --remove-orphans --timeout 5
-    pkill -f esp_rfc2217_server.py
 }
 
 startup() {
     docker compose down --remove-orphans
 }
 
-trap cleanup INT
 
-# Core logic
-init_esp_flash_server &
 
-startup &
+
+
 
 case "$1" in
-menuconfig)
+idf)
     echo "Running config"
-    docker compose run esp-idf menuconfig "$2"
-    ;;
-monitor)
-    echo "Running monitor"
-    docker compose up --build server db adminer esp-idf
-    ;;
-monitoronly)
-    echo "Running monitor"
-    docker compose run esp-idf monitor
-    ;;
-build)
-    echo "Running build"
-    docker compose build esp-idf
-    docker compose run esp-idf build
-    ;;
-flashonly)
-    build_flash_esp32
-    if [ $? -eq 1 ]; then
-        echo "Exiting due to flash failure."
+    cd ./esp-idf/project/
+    . $HOME/esp/esp-idf/export.sh
+    # if second arg is menuconfig
+    if [ "$2" = "menuconfig" ]; then
+        if [ ! -f ./sdkconfig ]; then
+            echo "sdkconfig not found, generating..."
+            python3 ./generate_kconfig.py
+        fi
+        idf.py menuconfig
+
+    else
+        idf.py ${@:2}
     fi
     ;;
-flash)
-    build_flash_esp32
-    if [ $? -eq 1 ]; then
-        echo "Exiting due to flash failure."
-    fi
-    docker compose run esp-idf monitor
+dev)
+    # startup &
+    echo "Running all services in dev mode"
+    # trap cleanup INT
+    # docker compose up --build &
+    # cd ./esp-idf/project/ 
+    # . $HOME/esp/esp-idf/export.sh
+    # idf.py build flash monitor &
+    # DC_PID=$!
+    # cd ./../../
+    cd ./rasp/
+    pdm install
+    pdm run src/main.py
+    # cleanup &
+
     ;;
-*)
-    echo "Running default"
-    docker compose up --build server db adminer esp-idf
-    ;;
+
 esac
 
-cleanup &

@@ -4,10 +4,9 @@ import socket
 import sys
 import threading
 
-from exceptions import LossException
-from models import Data, Logs, Loss, get_default_config, get_last_log
-from packet_parser import PacketParser
-
+from utils.exceptions import LossException
+from utils.models import Data, DatabaseManager, Logs, Loss
+from utils.packet_parser import PacketParser
 
 TIMEOUT_TOLERANCE = 10
 
@@ -38,13 +37,16 @@ def start_handshake():
         print("Handshake received from device", id_device, "custom epoch", custom_epoch_millis)
 
         seconds, milliseconds = divmod(custom_epoch_millis, 1000)
-        custom_epoch = datetime.datetime.utcfromtimestamp(seconds)
+        custom_epoch = datetime.datetime.utcfromtimestamp(
+            seconds).replace(tzinfo=datetime.timezone.utc)
         custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
         # When not using sntp:
-        custom_epoch = datetime.datetime.now().timestamp() - custom_epoch.timestamp()
-        
-        config = get_default_config()
-        config.last_access = datetime.datetime.now()
+        print("custom_epcho, time", custom_epoch.timestamp())
+        custom_epoch = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
+        print("debug", custom_epoch, "utcnow", datetime.datetime.utcnow())
+
+        config = DatabaseManager().get_default_config()
+        config.last_access = datetime.datetime.utcnow()
         config.save()
         to_send_text = config.transport_layer + str(config.id_protocol)
         to_send_bytes = to_send_text.encode("utf-8")
@@ -58,10 +60,10 @@ def start_handshake():
         # log
         print("Saving Log to db")
         log = Logs.create(
-            timestamp=datetime.datetime.now(),
+            timestamp=datetime.datetime.utcnow(),
             id_device=id_device,
-            transport_layer=get_default_config().transport_layer,
-            id_protocol=get_default_config().id_protocol,
+            transport_layer=DatabaseManager().get_default_config().transport_layer,
+            id_protocol=DatabaseManager().get_default_config().id_protocol,
             custom_epoch=custom_epoch,
         )
         log.save()
@@ -74,12 +76,14 @@ def start_handshake():
 
 
 def save_to_db(headers, body):
+    print("Saving to db")
     new_entry = Data.create()
-    custom_epoch = get_last_log().custom_epoch
+    custom_epoch = DatabaseManager().get_last_log().custom_epoch.replace(tzinfo=datetime.timezone.utc)
     id_device, mac, transport_layer, id_protocol, message_length = headers
     val, batt_level, timestamp = body[:3]
     new_entry.id_device = id_device
-    new_entry.mac = mac
+    new_entry.mac = ''.join(format(x, '02x') for x in mac)
+    print(mac)
     new_entry.transport_layer = transport_layer
     new_entry.id_protocol = id_protocol
     new_entry.message_length = message_length
@@ -87,7 +91,8 @@ def save_to_db(headers, body):
     new_entry.batt_level = batt_level
     timestamp += custom_epoch.timestamp() * 1000
     seconds, milliseconds = divmod(timestamp, 1000)
-    timestamp = datetime.datetime.utcfromtimestamp(seconds)
+    timestamp = datetime.datetime.utcfromtimestamp(
+        seconds).replace(tzinfo=datetime.timezone.utc)
     timestamp = timestamp.replace(microsecond=int(milliseconds) * 1000)
     # add custom epoch (mili seconds)
     new_entry.timestamp = timestamp
@@ -114,13 +119,13 @@ def save_to_db(headers, body):
             new_entry.ACC_Y = ACC_Y
             new_entry.ACC_Z = ACC_Z
     new_entry.save()
-    timestamp_now = datetime.datetime.now().timestamp()
+    timestamp_now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     dif_timestamp = timestamp_now - timestamp.timestamp()
     print(
         f"Timestamp now: {timestamp_now}  Timestamp esp {timestamp.timestamp()} \
         | Diff: {dif_timestamp}"
     )
-    dif_in_miliseconds = int(dif_timestamp * 1000)
+    dif_in_miliseconds = int(dif_timestamp * 1000 / 2)
     Loss.get_or_create(data=new_entry, bytes_lost=0, latency=dif_in_miliseconds)
 
 
@@ -157,9 +162,9 @@ def recv_headers_tcp(socket):
 
 
 def server_tcp():
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.utcnow()
     # copy of config
-    start_config = get_default_config()
+    start_config = DatabaseManager().get_default_config()
     start_layer = start_config.transport_layer
     start_protocol = start_config.id_protocol
 
@@ -174,11 +179,12 @@ def server_tcp():
     while True:
         client_socket, client_address = server_socket.accept()
         client_socket.settimeout(
-            (int(os.environ.get("SESP_TCP_TIMEOUT")) // 1000) + TIMEOUT_TOLERANCE)
+            (int(os.environ.get("SESP_TCP_TIMEOUT")) // 1000) + TIMEOUT_TOLERANCE
+        )
         print("Connection from: ", client_address)
         parser = PacketParser()
         while True:
-            cur_config = get_default_config()
+            cur_config = DatabaseManager().get_default_config()
             recently_accesed = cur_config.was_recently_accessed(start_time)
             changed = cur_config.was_changed(start_layer, start_protocol)
             if recently_accesed or changed:
@@ -248,9 +254,9 @@ def recv_in_chunks_udp(socket, total, chunk_size=1024):
 
 
 def server_udp():
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.utcnow()
     # copy of config
-    start_config = get_default_config()
+    start_config = DatabaseManager().get_default_config()
     start_layer = start_config.transport_layer
     start_protocol = start_config.id_protocol
 
@@ -260,18 +266,18 @@ def server_udp():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("0.0.0.0", int(SESP_PORT_UDP)))
-    server_socket.settimeout(int(os.environ.get("SESP_UDP_TIMEOUT")) // 1000 + TIMEOUT_TOLERANCE)
+    server_socket.settimeout(
+        int(os.environ.get("SESP_UDP_TIMEOUT")) // 1000 + TIMEOUT_TOLERANCE
+    )
     print("Server is listening on port: ", SESP_PORT_UDP)
     while True:
         parser = PacketParser()
         while True:
-            cur_config = get_default_config()
+            cur_config = DatabaseManager().get_default_config()
             recently_accesed = cur_config.was_recently_accessed(start_time)
             changed = cur_config.was_changed(start_layer, start_protocol)
             if recently_accesed or changed:
                 print("recently_accesed", recently_accesed, "changed", changed)
-                server_socket.shutdown(socket.SHUT_RDWR)
-                server_socket.close()
                 print("Config was recently accessed")
                 exit(1)
             try:

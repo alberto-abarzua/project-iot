@@ -1,4 +1,4 @@
-#include "wifi.h"
+#include "utils.h"
 
 /* *****************************************************************************
  *                                                                             *
@@ -10,37 +10,33 @@
 
 uint16_t HEADER_LENGTH;
 uint64_t CUSTOM_GLOBAL_EPOCH_MICROSECONDS;
+uint8_t DEVICE_MAC_ADDRESS[6];
+uint16_t DEVICE_ID;
+
+void get_mac_address(uint8_t *mac) {
+    int err = esp_efuse_mac_get_default(mac);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error getting MAC address: %d", err);
+        return;
+    }
+
+    ESP_LOGI(TAG, "MAC address: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1],
+             mac[2], mac[3], mac[4], mac[5]);
+}
+void generate_device_id(const uint8_t *mac, uint16_t *device_id) {
+    *device_id = (mac[0] ^ mac[3]) | ((mac[1] ^ mac[4]) << 8) |
+                 ((mac[2] ^ mac[5]) << 16);
+}
 
 void init_global_vars() {
     HEADER_LENGTH = sizeof(hd_01234_t);
     CUSTOM_GLOBAL_EPOCH_MICROSECONDS = current_unix_timestamp();
+    get_mac_address(DEVICE_MAC_ADDRESS);
+    generate_device_id(DEVICE_MAC_ADDRESS, &DEVICE_ID);
     // log custom
     ESP_LOGI(TAG, "HEADER_LENGTH: %d", HEADER_LENGTH);
     ESP_LOGI(TAG, "CUSTOM_GLOBAL_EPOCH_MICROSECONDS: %llu",
              CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
-}
-
-void initialize_sntp(
-    void) {  // not going to be used RN (no internet access in this case)
-    ESP_LOGI(TAG, "Initializing SNTP");
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, NTP_SERVER);
-    sntp_init();
-}
-
-void wait_for_sntp_sync() {  // Same as initialize_sntp
-    time_t now = 0;
-    struct tm timeinfo = {0};
-    int retry = 0;
-    const int retry_count = 10;
-
-    while (timeinfo.tm_year < (2016 - 1900) && ++retry < retry_count) {
-        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry,
-                 retry_count);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-        time(&now);
-        localtime_r(&now, &timeinfo);
-    }
 }
 
 uint64_t current_unix_timestamp() {
@@ -52,9 +48,6 @@ uint64_t current_unix_timestamp() {
 
 uint32_t get_timestamp_from_custom_epoch(void) {
     return (uint32_t)current_unix_timestamp();
-    // CODE BELLOW TO USE WITH SNTP
-    // uint64_t timestamp_us = current_unix_timestamp();
-    // return (uint32_t)(timestamp_us - CUSTOM_GLOBAL_EPOCH_MICROSECONDS);
 }
 
 /* *****************************************************************************
