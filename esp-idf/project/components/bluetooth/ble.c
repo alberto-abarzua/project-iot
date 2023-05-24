@@ -294,6 +294,7 @@ esp_err_t get_characteristic_value(uint16_t char_handle, uint8_t **result,
         esp_ble_gatts_get_attr_value(char_handle, length, &value);
 
     if (status == ESP_GATT_OK) {
+        ESP_LOGI(GATTS_TAG, "Get characteristic value successfully.\n");
         *result = (uint8_t *)malloc(
             *length +
             1);  // Allocate memory for string, including null-terminator
@@ -374,18 +375,21 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                 param->read.conn_id, param->read.trans_id, param->read.handle);
             esp_gatt_rsp_t rsp;
             memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
-            // char *customBuffer = "Hello, BLE!";
-            int size_to_send = 18;
-            char *customBuffer = create_packet(0, &size_to_send, 'C');
-            size_t bufferLen = size_to_send;
-            rsp.attr_value.len = bufferLen;  // Set length to string length
-            memcpy(rsp.attr_value.value, customBuffer,
-                   bufferLen);  // Copy string to value field
+
+            uint8_t *value_ptr = NULL;
+            uint16_t value_length = 0;
+            get_characteristic_value(
+                gl_profile_tab[PROFILE_A_APP_ID].char_handle, &value_ptr,
+                &value_length);
+
+            rsp.attr_value.len = value_length;  // Set length to string length
+            memcpy(rsp.attr_value.value, value_ptr,
+                   value_length);  // Copy string to value field
 
             esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
                                         param->read.trans_id, ESP_GATT_OK,
                                         &rsp);
-            free(customBuffer);
+            free(value_ptr);
             break;
         }
         case ESP_GATTS_WRITE_EVT: {
@@ -446,9 +450,29 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                 ESP_LOGI(GATTS_TAG, "Connection Init Message Received");
                 ESP_LOGI(GATTS_TAG, "GATT_WRITE_EVT, value len %d, value :%s",
                          param->write.len, param->write.value);
-                set_characteristic_value(
-                    gl_profile_tab[PROFILE_A_APP_ID].char_handle,
-                    param->write.value, param->write.len);
+
+                config_t cur_config;
+                get_nvs_config(&cur_config);
+
+                config_t config;
+                config.trans_layer = param->write.value[3];
+                config.protocol_id = param->write.value[4] - 48;
+                set_nvs_config(config);
+                vTaskDelay(500 / portTICK_PERIOD_MS);
+                // PRINT CONFIGS
+                ESP_LOGI(GATTS_TAG,
+                         "config.trans_layer %c config.protocol_id %d",
+                         config.trans_layer, config.protocol_id);
+
+                ESP_LOGI(GATTS_TAG,
+                         "cur_config.trans_layer %c cur_config.protocol_id %d",
+                         cur_config.trans_layer, cur_config.protocol_id);
+
+                if (config.protocol_id != cur_config.protocol_id ||
+                    config.trans_layer != cur_config.trans_layer) {
+                    ESP_LOGI(GATTS_TAG, "Restarting ESP");
+                    esp_restart();
+                }
             }
             example_write_event_env(gatts_if, &a_prepare_write_env, param);
             break;
@@ -625,16 +649,14 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
     } while (0);
 }
 
-void notify_data_available() {
+esp_err_t send_notify(char *notify_data) {
     // check if connected
     if (gl_profile_tab[PROFILE_A_APP_ID].conn_id ==
         0xFF) {  // assuming 0xFF is default when not connected
         ESP_LOGE(GATTS_TAG, "Not connected to a client");
-        return;
+        return ESP_FAIL;
     }
 
-    // sends a notification to the client
-    char *notify_data = "CHK_DATA";
     size_t len = strlen(notify_data);
     esp_err_t ret = esp_ble_gatts_send_indicate(
         gl_profile_tab[PROFILE_A_APP_ID].gatts_if,
@@ -647,7 +669,41 @@ void notify_data_available() {
     } else {
         ESP_LOGI(GATTS_TAG, "Send indicate success");
     }
+    return ret;
 }
+
+void cont_mode_loop() {
+    int first =1;
+    while (1) {
+        // get config
+        config_t config;
+        get_nvs_config(&config);
+        int packet_lenght;
+        ESP_LOGI(GATTS_TAG,
+                 "Creating packet UISNG PROTOCOL %d AND TRANS LAYER %c",
+                 config.protocol_id, config.trans_layer);
+        char *packet = create_packet(config.protocol_id, &packet_lenght,
+                                     config.trans_layer);
+
+        set_characteristic_value(gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+                                 (uint8_t *)packet, packet_lenght);
+        if(first){
+            ESP_LOGI(GATTS_TAG, "Sending START");
+            esp_err_t ret = send_notify("START");
+            if (ret == ESP_OK) {
+                ESP_LOGI(GATTS_TAG, "Sent START");
+                first = 0;
+            } else {
+                ESP_LOGE(GATTS_TAG, "Failed to send START");
+                vTaskDelay(7000 / portTICK_PERIOD_MS);
+                continue;
+            }
+        }
+        send_notify("CHK_DATA");
+        vTaskDelay(7000 / portTICK_PERIOD_MS);
+    }
+}
+
 void main_ble(void) {
     esp_err_t ret;
 
@@ -701,24 +757,5 @@ void main_ble(void) {
         ESP_LOGE(GATTS_TAG, "set local  MTU failed, error code = %x",
                  local_mtu_ret);
     }
-    while (1) {
-        uint8_t *value_ptr = NULL;
-        uint16_t value_length = 0;
-        esp_err_t status = get_characteristic_value(
-            gl_profile_tab[PROFILE_A_APP_ID].char_handle, &value_ptr,
-            &value_length);
-
-        if (status == ESP_GATT_OK) {
-            char *expected_string = "con";
-            // pprint the value
-            ESP_LOGI(GATTS_TAG, "Received value: %s", value_ptr);
-            if (strncmp((char *)value_ptr, expected_string, 3) == 0) {
-                ESP_LOGI(GATTS_TAG, "Received expected string");
-                notify_data_available();
-            }
-            free(value_ptr);
-        }
-
-        vTaskDelay(7000 / portTICK_PERIOD_MS);
-    }
+    cont_mode_loop();
 }

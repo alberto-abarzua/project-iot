@@ -10,8 +10,16 @@
 #include "esp_log.h"
 #include <string.h>
 #include "esp_mac.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+#include "esp_system.h"
 
 #define TAG "ESP_32"
+
+
+#define DEFAULT_TRANS_LAYER 'C'
+#define DEFAULT_PROTOCOL_ID 0
+
 #include <sys/time.h>
 #pragma pack(push, 1)
 typedef struct hd_01234 {
@@ -89,5 +97,6 @@ void accy(char *buf);
 void accz(char *buf);
 char *create_packet(int protocol_id, int *packet_size,char transport_layer);
 void init_global_vars();
-
+esp_err_t get_nvs_config(config_t *config);
+esp_err_t set_nvs_config(config_t config);
 #endif  // utils_h

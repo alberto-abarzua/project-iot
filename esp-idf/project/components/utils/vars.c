@@ -31,6 +31,7 @@ void generate_device_id(const uint8_t *mac, uint16_t *device_id) {
 void init_global_vars() {
     HEADER_LENGTH = sizeof(hd_01234_t);
     CUSTOM_GLOBAL_EPOCH_MICROSECONDS = current_unix_timestamp();
+    ESP_ERROR_CHECK(nvs_flash_init());
     get_mac_address(DEVICE_MAC_ADDRESS);
     generate_device_id(DEVICE_MAC_ADDRESS, &DEVICE_ID);
     // log custom
@@ -48,6 +49,56 @@ uint64_t current_unix_timestamp() {
 
 uint32_t get_timestamp_from_custom_epoch(void) {
     return (uint32_t)current_unix_timestamp();
+}
+
+esp_err_t set_nvs_config(config_t config) {
+    nvs_handle_t my_handle;
+    esp_err_t ret = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (ret != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(ret));
+        return ret;
+    }
+
+    ret = nvs_set_blob(my_handle, "config_key", &config, sizeof(config));
+    if (ret != ESP_OK) {
+        printf("Error (%s) writing!\n", esp_err_to_name(ret));
+        nvs_close(my_handle);
+        return ret;
+    }
+
+    ret = nvs_commit(my_handle);
+    if (ret != ESP_OK) {
+        printf("Error (%s) committing!\n", esp_err_to_name(ret));
+    }
+
+    nvs_close(my_handle);
+    return ret;
+}
+
+esp_err_t get_nvs_config(config_t *config) {
+    nvs_handle_t my_handle;
+    esp_err_t ret = nvs_open("storage", NVS_READONLY, &my_handle);
+    if (ret == ESP_ERR_NVS_NOT_FOUND) {
+        printf("The value is not initialized yet!\n");
+        config->protocol_id = DEFAULT_PROTOCOL_ID;
+        config->trans_layer = DEFAULT_TRANS_LAYER;
+    }else if (ret != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(ret));
+        return ret;
+    }
+
+    size_t required_size = sizeof(config_t);
+    ret = nvs_get_blob(my_handle, "config_key", config, &required_size);
+    if (ret == ESP_ERR_NVS_NOT_FOUND) {
+        printf("The value is not initialized yet!\n");
+        config->protocol_id = DEFAULT_PROTOCOL_ID;
+        config->trans_layer = DEFAULT_TRANS_LAYER;
+    }else if (ret != ESP_OK) {
+        printf("Error (%s) reading!\n", esp_err_to_name(ret));
+    }
+
+    nvs_close(my_handle);
+    return ret;
 }
 
 /* *****************************************************************************

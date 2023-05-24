@@ -121,15 +121,15 @@ class DatabaseManager:
         config, _ = Config.get_or_create(
             config_name="default",
             defaults={
-                "id_protocol": 4,
-                "transport_layer": "U",
+                "id_protocol": 0,
+                "transport_layer": "C",
                 "last_access": datetime.datetime.utcnow(),
             },
         )
         return config
     
     @staticmethod
-    def save_to_db(headers, body):
+    def save_data_to_db(headers, body):
         print("Saving to db")
         new_entry = Data.create()
         custom_epoch = DatabaseManager.get_last_log().custom_epoch.replace(tzinfo=datetime.timezone.utc)
@@ -180,3 +180,4 @@ class DatabaseManager:
         )
         dif_in_miliseconds = int(dif_timestamp * 1000 )
         Loss.get_or_create(data=new_entry, bytes_lost=0, latency=dif_in_miliseconds)
+

@@ -148,7 +148,7 @@ class TcpServer:
                     body = parser.parse_body(
                         self.recv_in_chunks(client_socket, message_length), id_protocol
                     )
-                    DatabaseManager.save_to_db(headers, body)
+                    DatabaseManager.save_data_to_db(headers, body)
                     print("Data saved to db")
                 except LossException as e:
                     print("Loss exception!!!!")
@@ -234,7 +234,7 @@ class UdpServer:
                     body = parser.parse_body(
                         self.recv_in_chunks(server_socket, message_length), id_protocol
                     )
-                    DatabaseManager.save_to_db(headers, body)
+                    DatabaseManager.save_data_to_db(headers, body)
                     print("Data saved to db")
                 except LossException as e:
                     print("Loss exception!!!!")
