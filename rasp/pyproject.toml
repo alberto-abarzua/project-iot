@@ -15,7 +15,7 @@ dependencies = [
     "black>=23.3.0",
     "bleak>=0.20.2",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 
 
