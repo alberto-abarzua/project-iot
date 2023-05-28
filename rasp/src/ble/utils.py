@@ -5,7 +5,7 @@ import asyncio
 from utils.packet_parser import PacketParser
 from utils.models import Logs
 import datetime
-
+import os
 
 # *****************************************************************************
 # *                                                                           *
@@ -42,17 +42,28 @@ class BleHandshake:
 
         print(f"Handshake | custom epoch {custom_epoch.timestamp()}")
         custom_epoch = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
+
+        now = datetime.datetime.utcnow()
+        now = now.replace(tzinfo=datetime.timezone.utc).timestamp()
+        time_to_connect = -1
+        tries = -1
+        if self.context.init_timesamp is not None:
+            time_to_connect = now - self.context.init_timesamp
+            tries = self.context.tries
         log = Logs.create(
             timestamp=datetime.datetime.utcnow(),
             id_device=id_device,
             custom_epoch=custom_epoch,
+            time_to_connect=time_to_connect,
             id_protocol=id_protocol,
             transport_layer=trasnport_layer,
+            tries=tries,
 
         )
 
         print("Saving log!")
         log.save()
+        self.context.init_timesamp = None
 
     async def run(self):
         conf = DatabaseManager.get_default_config()
@@ -85,23 +96,32 @@ class Connecting:
         self.context = context
 
     async def run(self):
-        self.context.state = self
-        print("Device is connecting")
-        scanner = BleakScanner()
-        devices = await scanner.discover()
-        print("Discovered devices:")
-        [print(device) for device in devices]
-        print("\n\n")
-        for device in devices:
-            if device.name == self.context.device_name:
-                print(f"Device found: {device}")
-                client = BleakClient(device, timeout=20)
-                await client.connect()
-                print("Connected!")
-                return client
-        print("Device not found")
-        print("Trying again...")
-        await self.context.transition_to(ConnectingState())
+        try:
+            self.context.state = self
+            print("Device is connecting")
+            scanner = BleakScanner()
+            devices = await scanner.discover()
+            print("Discovered devices:")
+            [print(device) for device in devices]
+            print("\n\n")
+            for device in devices:
+                if device.name == self.context.device_name:
+                    print(f"Device found: {device}")
+                    client = BleakClient(device, timeout=20)
+                    await client.connect()
+                    print("Connected!")
+                    # self.context.succesful_connection_timestamp = datetime.datetime.utcnow()
+                    # self.context.succesful_connection_timestamp.replace(tzinfo=datetime.timezone.utc)
+                    return client
+            print("Device not found")
+            print("Trying again...")
+            raise TimeoutError("Failed to connect")
+        except Exception as e:
+            print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e} ")
+            self.context.tries += 1
+            await self.context.transition_to(ConnectingState())
+            return None
+
 
 
 # *****************************************************************************
@@ -145,17 +165,17 @@ class ConnectedState(DeviceState):
         self.read_data = ReadData(context, client)
         print("Device is connected")
         await self.ble_handshake.run()
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.3)
         print("Setting notification callback (start_notify)")
         await client.start_notify(context.characteristic_uuid, self.notify_callback)
         while True:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
             if self.data_available:
                 await self.ble_handshake.run()
                 await self.read_data.run()
                 self.data_available = False
                 if context.transport_layer == "D":
-                    await asyncio.sleep(4)
+                    await asyncio.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
                     await client.disconnect()
                     return
 
@@ -175,6 +195,9 @@ class StatefullBleManager:
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
+        self.tries = 1
+        self.init_timesamp = datetime.datetime.utcnow()
+        self.init_timesamp = self.init_timesamp.replace(tzinfo=datetime.timezone.utc).timestamp()
 
     async def transition_to(self, state: DeviceState, client=None):
         self.state = state
@@ -187,7 +210,6 @@ class StatefullBleManager:
         asyncio.run(self._run())
 
     async def _run(self):
-        print(f"Starting BLE manager using mode:{self.transport_layer}")
         client = await self.transition_to(ConnectingState())
         if client is not None:
             await self.transition_to(ConnectedState(), client)
@@ -203,6 +225,9 @@ class StatelessBleManager:
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
         self.data_available = True
+        self.tries = 1
+        self.init_timesamp = datetime.datetime.utcnow()
+        self.init_timesamp = self.init_timesamp.replace(tzinfo=datetime.timezone.utc).timestamp()
 
     def notify_callback(self, sender, data):
         expected_data = b"CHK_DATA"
@@ -210,19 +235,19 @@ class StatelessBleManager:
             print("Notification received - Checking data")
             self.data_available = True
 
+    async def transition_to(self, state: DeviceState, client=None):
+        return None
     async def _run(self):
-        print(f"Starting BLE manager using mode:{self.transport_layer}")
+        
         self.connecting = Connecting(self)
 
         while True:
             try:
-                try:
-                    client = await self.connecting.run()
-                except AttributeError:
-                    print("Failed to connect!")
+                client = await self.connecting.run()
+                if client is None:
                     continue
                 self.client = client
-                await asyncio.sleep(2)
+                await asyncio.sleep(0.2)
                 print("Setting notification callback (start_notify)")
                 self.ble_handshake = BleHandshake(self, client)
                 self.read_data = ReadData(self, client)
@@ -230,23 +255,22 @@ class StatelessBleManager:
                 self.read_data = ReadData(self, client)
                 print("Device is connected")
                 await self.ble_handshake.run()
-                await asyncio.sleep(1)
                 print("Setting notification callback (start_notify)")
                 await client.start_notify(self.characteristic_uuid, self.notify_callback)
                 while True:
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.1)
                     if self.data_available:
                         await self.ble_handshake.run()
                         await self.read_data.run()
                         self.data_available = False
                         if self.transport_layer == "D":
-                            await asyncio.sleep(4)
+                            await asyncio.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
                             await client.disconnect()
                             return
             except Exception as e:
                 print(e)
                 print("Error while connecting")
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.2)
                 continue
 
     def run(self):
@@ -254,13 +278,14 @@ class StatelessBleManager:
 
 
 class BleManager:
-    USE_STATES = True
+    USE_STATES = False
 
     def __init__(self, device_name, characteristic_uuid, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
+        print(f"Starting BLE manager using mode: --> ?? {self.transport_layer}")
         if (self.USE_STATES):
             self.manager = StatefullBleManager(
                 device_name, characteristic_uuid, transport_layer)

@@ -67,7 +67,9 @@ class Logs(Model):
     id_device = IntegerField()
     transport_layer = CharField()
     id_protocol = CharField()
+    time_to_connect = TimestampField(resolution=3, null=True)
     custom_epoch = TimestampField(resolution=3, null=True)
+    tries = IntegerField()
 
     class Meta:
         database = db

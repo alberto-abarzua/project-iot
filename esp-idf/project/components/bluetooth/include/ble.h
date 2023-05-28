@@ -20,7 +20,7 @@
 #include "sdkconfig.h"
 #include "utils.h"
 
-
+#define BLE_DISC_TIMEOUT_SEC CONFIG_BLE_DISC_TIMEOUT_SEC
 void main_ble(char mode);
 
 #endif  // ble_h

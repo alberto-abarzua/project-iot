@@ -716,7 +716,7 @@ void dis_cont_mode_loop() {
         if (gl_profile_tab[PROFILE_A_APP_ID].conn_id != 0xFF && ret == ESP_OK ) {
             ESP_LOGI(GATTS_TAG, "Going to sleep");
             esp_sleep_enable_timer_wakeup(
-                (long long)(30 *
+                (long long)(BLE_DISC_TIMEOUT_SEC *
                             1e+6));  
             esp_deep_sleep_start();
         }
