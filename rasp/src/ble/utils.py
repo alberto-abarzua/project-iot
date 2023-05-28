@@ -95,8 +95,7 @@ class Connecting:
         for device in devices:
             if device.name == self.context.device_name:
                 print(f"Device found: {device}")
-                client = BleakClient(device)
-                client.set_settings(timeout=20)
+                client = BleakClient(device, timeout=20)
                 await client.connect()
                 print("Connected!")
                 return client
