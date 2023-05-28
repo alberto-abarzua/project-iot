@@ -12,7 +12,7 @@ void app_main(void) {
              config.trans_layer, config.protocol_id);
     if (config.trans_layer == 'U' || config.trans_layer == 'T') {
         main_wifi();
-    } else if (config.trans_layer == 'C' || config.trans_layer == 'B') {
-        main_ble();
+    } else if (config.trans_layer == 'C' || config.trans_layer == 'D') {
+        main_ble(config.trans_layer);
     }
 }

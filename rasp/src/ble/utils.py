@@ -7,66 +7,60 @@ from utils.models import Logs
 import datetime
 
 
+# *****************************************************************************
+# *                                                                           *
+# *  ***********************    BLE STEPS    ***************************  *
+# *                                                                           *
+# *  *************** <><><><><><><><><><><><><><><><><><><><> *************  *
+# *                                                                           *
+# *****************************************************************************
+
+
 class BleHandshake:
     def __init__(self, context, client):
         self.client = client
         self.context = context
-        self.first = True
 
-    async def set_log(self, sender, data):
-            expected_data = b"START"
-            print("in log notify")
-            print("data", data)
-            if data == expected_data:
-                data = await self.client.read_gatt_char(self.context.characteristic_uuid)
-                print("reading lata of len", len(data), "data", data)
-                data_headers = data[:12]
-                data_body = data[12:]
+    async def set_log(self):
+        print("Handshake received")
+        data = await self.client.read_gatt_char(self.context.characteristic_uuid)
+        data_headers = data[:12]
+        data_body = data[12:]
 
-                parser = PacketParser()
-                headers = parser.parse_headers(data_headers)
-                id_device, _, trasnport_layer, id_protocol, _ = headers
-                body = parser.parse_body(data_body, id_protocol)
-                custom_epoch = body[2]
-                print("Handshake received from device", id_device,
-                    "custom epoch", custom_epoch)
+        parser = PacketParser()
+        headers = parser.parse_headers(data_headers)
+        id_device, _, trasnport_layer, id_protocol, _ = headers
+        body = parser.parse_body(data_body, id_protocol)
+        custom_epoch = body[2]
 
-                seconds, milliseconds = divmod(custom_epoch, 1000)
-                custom_epoch = datetime.datetime.utcfromtimestamp(
-                    seconds).replace(tzinfo=datetime.timezone.utc)
-                custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
-                # When not using sntp:
-                print("custom_epcho, time", custom_epoch.timestamp())
-                custom_epoch = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
-                log = Logs.create(
-                    timestamp=datetime.datetime.utcnow(),
-                    id_device=id_device,
-                    custom_epoch=custom_epoch,
-                    id_protocol=id_protocol,
-                    transport_layer=trasnport_layer,
+        print(f"Handshake from | device id: {id_device} custom_epoch: {custom_epoch}")
 
-                )
-                print("log saved")
-                log.save()
-                self.client.stop_notify(self.context.characteristic_uuid)
+        seconds, milliseconds = divmod(custom_epoch, 1000)
+        custom_epoch = datetime.datetime.utcfromtimestamp(
+            seconds).replace(tzinfo=datetime.timezone.utc)
+        custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
 
+        print(f"Handshake | custom epoch {custom_epoch.timestamp()}")
+        custom_epoch = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
+        log = Logs.create(
+            timestamp=datetime.datetime.utcnow(),
+            id_device=id_device,
+            custom_epoch=custom_epoch,
+            id_protocol=id_protocol,
+            transport_layer=trasnport_layer,
+
+        )
+
+        print("Saving log!")
+        log.save()
 
     async def run(self):
-        # if first:
-        # save log
-
         conf = DatabaseManager.get_default_config()
         first_msg = f"con{conf.transport_layer}{conf.id_protocol}".encode()
-        print("Sending connect request")
+        print("Starting the handshake")
         await self.client.write_gatt_char(self.context.characteristic_uuid, first_msg)
-
-        if self.first:
-            await asyncio.sleep(5)
-            self.first = False
-            await self.client.start_notify(self.context.characteristic_uuid, self.set_log)
-            print("Started notify")
-
-        print("Sent connect request")
+        await self.set_log()
+        print("Handshake completed")
 
 
 class ReadData:
@@ -83,8 +77,41 @@ class ReadData:
         _, _, _, id_protocol, _ = headers
         body = parser.parse_body(data_body, id_protocol)
         DatabaseManager.save_data_to_db(headers, body)
-        print("Data received and saved!")
+        print("\t\tData received and saved!")
 
+
+class Connecting:
+    def __init__(self,context):
+        self.context = context
+
+    async def run(self):
+        self.context.state = self
+        print("Device is connecting")
+        scanner = BleakScanner()
+        devices = await scanner.discover()
+        print("Discovered devices:")
+        [print(device) for device in devices]
+        print("\n\n")
+        for device in devices:
+            if device.name == self.context.device_name:
+                print(f"Device found: {device}")
+                client = BleakClient(device)
+                await client.connect()
+                print("Connected!")
+                return client
+        print("Device not found")
+        print("Trying again...")
+        await self.context.transition_to(ConnectingState())
+
+
+
+# *****************************************************************************
+# *                                                                           *
+# *  ***********************    BLE STATES    ***************************  *
+# *                                                                           *
+# *  *************** <><><><><><><><><><><><><><><><><><><><> *************  *
+# *                                                                           *
+# *****************************************************************************
 
 class DeviceState(ABC):
     @abstractmethod
@@ -100,34 +127,16 @@ class DisconnectedState(DeviceState):
 
 class ConnectingState(DeviceState):
     async def handle(self, context):
-        context.state = self
-        print("Device is connecting")
-        scanner = BleakScanner()
-        devices = await scanner.discover()
-        print("Discovered devices:")
-        [print(device) for device in devices]
-        print("\n\n")
-        for device in devices:
-            if device.name == context.device_name:
-                print(f"Device found: {device}")
-                client = BleakClient(device)
-                await client.connect()
-                print("Connected!")
-                return client
-        print("Device not found")
-        print("Trying again...")
-        await context.transition_to(ConnectingState())
-
+        return await Connecting(context).run()
 
 class ConnectedState(DeviceState):
     def __init__(self):
-        self.data_available = False
-        
+        self.data_available = True
 
     def notify_callback(self, sender, data):
         expected_data = b"CHK_DATA"
         if data == expected_data:
-            print("Notification received - data available")
+            print("Notification received - Checking data")
             self.data_available = True
 
     async def handle(self, context, client):
@@ -136,24 +145,39 @@ class ConnectedState(DeviceState):
         self.read_data = ReadData(context, client)
         print("Device is connected")
         await self.ble_handshake.run()
-        await asyncio.sleep(5)
-        print("setting up notifications")
+        await asyncio.sleep(1)
+        print("Setting notification callback (start_notify)")
         await client.start_notify(context.characteristic_uuid, self.notify_callback)
         while True:
             await asyncio.sleep(0.5)
             if self.data_available:
                 await self.ble_handshake.run()
-                await asyncio.sleep(0.5)
                 await self.read_data.run()
                 self.data_available = False
+                if context.transport_layer == "D":
+                    await asyncio.sleep(4)
+                    await client.disconnect()
+                    return
 
 
-class BleManager:
-    def __init__(self, device_name, characteristic_uuid):
+# *****************************************************************************
+# *                                                                           *
+# *  ***********************    BLE Manager    ***************************  *
+# *                                                                           *
+# *  *************** <><><><><><><><><><><><><><><><><><><><> *************  *
+# *                                                                           *
+# *****************************************************************************
+
+
+
+
+
+class StatefullBleManager:
+    def __init__(self, device_name, characteristic_uuid, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
-
+        self.transport_layer = transport_layer
     async def transition_to(self, state: DeviceState, client=None):
         self.state = state
         if client is None:
@@ -165,8 +189,95 @@ class BleManager:
         asyncio.run(self._run())
 
     async def _run(self):
+        print(f"Starting BLE manager using mode:{self.transport_layer}")
         client = await self.transition_to(ConnectingState())
         if client is not None:
             await self.transition_to(ConnectedState(), client)
             await client.disconnect()
             await self.transition_to(DisconnectedState())
+
+
+
+class StatelessBleManager:
+
+    def __init__(self, device_name, characteristic_uuid, transport_layer):
+        self.state = DisconnectedState()
+        self.device_name = device_name
+        self.characteristic_uuid = characteristic_uuid
+        self.transport_layer = transport_layer
+        self.data_available = True
+
+
+    def notify_callback(self, sender, data):
+            expected_data = b"CHK_DATA"
+            if data == expected_data:
+                print("Notification received - Checking data")
+                self.data_available = True
+
+
+    async def _run(self):
+        print(f"Starting BLE manager using mode:{self.transport_layer}")
+        self.connecting = Connecting(self)
+       
+        while True:
+            try:
+                try:
+                    client = await self.connecting.run()
+                except AttributeError:
+                    print("Failed to connect!")
+                    continue
+                self.client = client
+                await asyncio.sleep(2)
+                print("Setting notification callback (start_notify)")
+                self.ble_handshake = BleHandshake(self,client)
+                self.read_data = ReadData(self,client)
+                self.ble_handshake = BleHandshake(self, client)
+                self.read_data = ReadData(self, client)
+                print("Device is connected")
+                await self.ble_handshake.run()
+                await asyncio.sleep(1)
+                print("Setting notification callback (start_notify)")
+                await client.start_notify(self.characteristic_uuid, self.notify_callback)
+                while True:
+                    await asyncio.sleep(0.5)
+                    if self.data_available:
+                        await self.ble_handshake.run()
+                        await self.read_data.run()
+                        self.data_available = False
+                        if self.transport_layer == "D":
+                            await asyncio.sleep(4)
+                            await client.disconnect()
+                            return
+            except Exception as e:
+                print(e)
+                print("Error while connecting")
+                await asyncio.sleep(1)
+                continue
+
+
+
+
+    def run(self):
+        asyncio.run(self._run())
+
+
+
+
+
+
+
+class BleManager:
+    USE_STATES = True
+    def __init__(self, device_name, characteristic_uuid, transport_layer):
+        self.state = DisconnectedState()
+        self.device_name = device_name
+        self.characteristic_uuid = characteristic_uuid
+        self.transport_layer = transport_layer
+        if (self.USE_STATES):
+            self.manager = StatefullBleManager(device_name, characteristic_uuid, transport_layer)
+        else:
+            self.manager = StatelessBleManager(device_name, characteristic_uuid, transport_layer)
+    def run(self):
+        self.manager.run()
+   
+
