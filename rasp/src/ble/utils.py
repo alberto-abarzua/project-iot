@@ -81,7 +81,7 @@ class ReadData:
 
 
 class Connecting:
-    def __init__(self,context):
+    def __init__(self, context):
         self.context = context
 
     async def run(self):
@@ -96,13 +96,13 @@ class Connecting:
             if device.name == self.context.device_name:
                 print(f"Device found: {device}")
                 client = BleakClient(device)
+                client.set_settings(timeout=20)
                 await client.connect()
                 print("Connected!")
                 return client
         print("Device not found")
         print("Trying again...")
         await self.context.transition_to(ConnectingState())
-
 
 
 # *****************************************************************************
@@ -128,6 +128,7 @@ class DisconnectedState(DeviceState):
 class ConnectingState(DeviceState):
     async def handle(self, context):
         return await Connecting(context).run()
+
 
 class ConnectedState(DeviceState):
     def __init__(self):
@@ -169,15 +170,13 @@ class ConnectedState(DeviceState):
 # *****************************************************************************
 
 
-
-
-
 class StatefullBleManager:
     def __init__(self, device_name, characteristic_uuid, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
+
     async def transition_to(self, state: DeviceState, client=None):
         self.state = state
         if client is None:
@@ -197,7 +196,6 @@ class StatefullBleManager:
             await self.transition_to(DisconnectedState())
 
 
-
 class StatelessBleManager:
 
     def __init__(self, device_name, characteristic_uuid, transport_layer):
@@ -207,18 +205,16 @@ class StatelessBleManager:
         self.transport_layer = transport_layer
         self.data_available = True
 
-
     def notify_callback(self, sender, data):
-            expected_data = b"CHK_DATA"
-            if data == expected_data:
-                print("Notification received - Checking data")
-                self.data_available = True
-
+        expected_data = b"CHK_DATA"
+        if data == expected_data:
+            print("Notification received - Checking data")
+            self.data_available = True
 
     async def _run(self):
         print(f"Starting BLE manager using mode:{self.transport_layer}")
         self.connecting = Connecting(self)
-       
+
         while True:
             try:
                 try:
@@ -229,8 +225,8 @@ class StatelessBleManager:
                 self.client = client
                 await asyncio.sleep(2)
                 print("Setting notification callback (start_notify)")
-                self.ble_handshake = BleHandshake(self,client)
-                self.read_data = ReadData(self,client)
+                self.ble_handshake = BleHandshake(self, client)
+                self.read_data = ReadData(self, client)
                 self.ble_handshake = BleHandshake(self, client)
                 self.read_data = ReadData(self, client)
                 print("Device is connected")
@@ -254,30 +250,24 @@ class StatelessBleManager:
                 await asyncio.sleep(1)
                 continue
 
-
-
-
     def run(self):
         asyncio.run(self._run())
 
 
-
-
-
-
-
 class BleManager:
     USE_STATES = True
+
     def __init__(self, device_name, characteristic_uuid, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
         if (self.USE_STATES):
-            self.manager = StatefullBleManager(device_name, characteristic_uuid, transport_layer)
+            self.manager = StatefullBleManager(
+                device_name, characteristic_uuid, transport_layer)
         else:
-            self.manager = StatelessBleManager(device_name, characteristic_uuid, transport_layer)
+            self.manager = StatelessBleManager(
+                device_name, characteristic_uuid, transport_layer)
+
     def run(self):
         self.manager.run()
-   
-
