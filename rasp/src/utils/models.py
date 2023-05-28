@@ -70,6 +70,7 @@ class Logs(Model):
     time_to_connect = TimestampField(resolution=3, null=True)
     custom_epoch = TimestampField(resolution=3, null=True)
     tries = IntegerField()
+    ble_state_machine = CharField()
 
     class Meta:
         database = db
@@ -103,21 +104,25 @@ class DatabaseManager:
         db.connect()
         print("getting default config")
         # drop tables
-        try:
-            db.drop_tables(DatabaseManager.MODELS)
-        except:
-            pass
+        if os.environ.get("DROP_DB_ON_START", "TRUE").upper() == "TRUE":
+            try:
+                db.drop_tables(DatabaseManager.MODELS)
+            except:
+                pass
 
         db.create_tables(DatabaseManager.MODELS)
         print(DatabaseManager.get_default_config())
+
     @staticmethod
     def db_close():
         db.close()
+
     @staticmethod
     def get_last_log():
         res = Logs.select().order_by(Logs.id.desc()).get()
-        print("last log",res.timestamp.timestamp(),res.custom_epoch.timestamp())
+        print("last log", res.timestamp.timestamp(), res.custom_epoch.timestamp())
         return res
+
     @staticmethod
     def get_default_config():
         config, _ = Config.get_or_create(
@@ -129,7 +134,7 @@ class DatabaseManager:
             },
         )
         return config
-    
+
     @staticmethod
     def save_data_to_db(headers, body):
         print("Saving to db")
@@ -180,6 +185,5 @@ class DatabaseManager:
             f"Timestamp now: {timestamp_now}  Timestamp esp {timestamp.timestamp()} \
             | Diff: {dif_timestamp}"
         )
-        dif_in_miliseconds = int(dif_timestamp * 1000 )
+        dif_in_miliseconds = int(dif_timestamp * 1000)
         Loss.get_or_create(data=new_entry, bytes_lost=0, latency=dif_in_miliseconds)
-

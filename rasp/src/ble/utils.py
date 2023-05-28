@@ -45,25 +45,25 @@ class BleHandshake:
 
         now = datetime.datetime.utcnow()
         now = now.replace(tzinfo=datetime.timezone.utc).timestamp()
-        time_to_connect = -1
-        tries = -1
         if self.context.init_timesamp is not None:
             time_to_connect = now - self.context.init_timesamp
             tries = self.context.tries
-        log = Logs.create(
-            timestamp=datetime.datetime.utcnow(),
-            id_device=id_device,
-            custom_epoch=custom_epoch,
-            time_to_connect=time_to_connect,
-            id_protocol=id_protocol,
-            transport_layer=trasnport_layer,
-            tries=tries,
-
-        )
-
-        print("Saving log!")
-        log.save()
-        self.context.init_timesamp = None
+            ble_state_machine = "not using states"
+            if os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE":
+                ble_state_machine = "using states"
+            log = Logs.create(
+                timestamp=datetime.datetime.utcnow(),
+                id_device=id_device,
+                custom_epoch=custom_epoch,
+                time_to_connect=time_to_connect,
+                id_protocol=id_protocol,
+                transport_layer=trasnport_layer,
+                tries=tries,
+                ble_state_machine=ble_state_machine,
+            )
+            print("Saving log!")
+            log.save()
+            self.context.init_timesamp = None
 
     async def run(self):
         conf = DatabaseManager.get_default_config()
@@ -117,11 +117,11 @@ class Connecting:
             print("Trying again...")
             raise TimeoutError("Failed to connect")
         except Exception as e:
-            print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e} ")
+            print(
+                f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e} ")
             self.context.tries += 1
             await self.context.transition_to(ConnectingState())
             return None
-
 
 
 # *****************************************************************************
@@ -197,7 +197,8 @@ class StatefullBleManager:
         self.transport_layer = transport_layer
         self.tries = 1
         self.init_timesamp = datetime.datetime.utcnow()
-        self.init_timesamp = self.init_timesamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+        self.init_timesamp = self.init_timesamp.replace(
+            tzinfo=datetime.timezone.utc).timestamp()
 
     async def transition_to(self, state: DeviceState, client=None):
         self.state = state
@@ -227,7 +228,8 @@ class StatelessBleManager:
         self.data_available = True
         self.tries = 1
         self.init_timesamp = datetime.datetime.utcnow()
-        self.init_timesamp = self.init_timesamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+        self.init_timesamp = self.init_timesamp.replace(
+            tzinfo=datetime.timezone.utc).timestamp()
 
     def notify_callback(self, sender, data):
         expected_data = b"CHK_DATA"
@@ -237,8 +239,9 @@ class StatelessBleManager:
 
     async def transition_to(self, state: DeviceState, client=None):
         return None
+
     async def _run(self):
-        
+
         self.connecting = Connecting(self)
 
         while True:
@@ -278,15 +281,15 @@ class StatelessBleManager:
 
 
 class BleManager:
-    USE_STATES = False
 
     def __init__(self, device_name, characteristic_uuid, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
+        self.use_states = os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE"
         print(f"Starting BLE manager using mode: --> ?? {self.transport_layer}")
-        if (self.USE_STATES):
+        if (self.use_states):
             self.manager = StatefullBleManager(
                 device_name, characteristic_uuid, transport_layer)
         else:
