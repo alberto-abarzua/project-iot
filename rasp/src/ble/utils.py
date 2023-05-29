@@ -107,7 +107,7 @@ class Connecting:
             for device in devices:
                 if device.name == self.context.device_name:
                     print(f"Device found: {device}")
-                    client = BleakClient(device, timeout=20)
+                    client = BleakClient(device, timeout=60)
                     await client.connect()
                     print("Connected!")
                     # self.context.succesful_connection_timestamp = datetime.datetime.utcnow()
