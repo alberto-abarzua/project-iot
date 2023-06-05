@@ -8,6 +8,7 @@ from utils.models import Logs
 import datetime
 import os
 import asyncio
+import pytz
 # *****************************************************************************
 # *                                                                           *
 # *  ***********************    BLE STEPS    ***************************  *
@@ -35,17 +36,17 @@ class BleHandshake:
         headers = parser.parse_headers(data_headers)
         id_device, _, transport_layer, id_protocol, _ = headers
         body = parser.parse_body(data_body, id_protocol)
-        custom_epoch = body[2]
+        custom_epoch = body[2] #custom epoch in millies
 
         print(f"Handshake from | device id: {id_device} custom_epoch: {custom_epoch}")
 
         seconds, milliseconds = divmod(custom_epoch, 1000)
-        custom_epoch = datetime.datetime.utcfromtimestamp(seconds).replace(tzinfo=datetime.timezone.utc)
+        custom_epoch = datetime.datetime.fromtimestamp(seconds,tz=pytz.utc)
         custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
-
+        utc_now = datetime.datetime.now(tz = pytz.utc)
         print(f"Handshake | custom epoch {custom_epoch.timestamp()}")
-        custom_epoch_diff = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
-
+        custom_epoch_diff = utc_now.timestamp() - custom_epoch.timestamp()
+        print("Handshake | custom epoch diff", custom_epoch_diff)
         now = datetime.datetime.utcnow()
         now = now.replace(tzinfo=datetime.timezone.utc).timestamp()
         if self.context.init_timestamp is not None:
@@ -246,25 +247,24 @@ class StatelessBleManager:
 
     def _run(self):
 
-        self.connecting = Connecting(self)
+        
 
         while True:
             try:
+                self.connecting = Connecting(self)
                 client = self.connecting.run()
                 if client is None:
                     continue
                 self.client = client
                 time.sleep(0.2)
                 print("Setting notification callback (start_notify)")
-                # self.client.subscribe(self.characteristic_uuid, callback=self.notify_callback)
-                # run this on thread
                 self.notify_thread = threading.Thread(target=client.subscribe, args=(self.characteristic_uuid,),
                                       kwargs={"callback": self.notify_callback, "wait_for_response": False})
                 self.notify_thread.start()
                 self.ble_handshake = BleHandshake(self, client)
                 self.read_data = ReadData(self, client)
                 print("Device is connected")
-                # self.ble_handshake.run()
+                
                 print("Setting notification callback (start_notify)")
                 while True:
                     time.sleep(0.1)

@@ -12,6 +12,7 @@ from peewee import (
     PostgresqlDatabase,
     TimestampField,
 )
+import pytz
 
 db = PostgresqlDatabase(
     os.environ.get("POSTGRES_DB"),
@@ -139,7 +140,7 @@ class DatabaseManager:
     def save_data_to_db(headers, body):
         print("Saving to db")
         new_entry = Data.create()
-        custom_epoch = DatabaseManager.get_last_log().custom_epoch.replace(tzinfo=datetime.timezone.utc)
+        custom_epoch = DatabaseManager.get_last_log().custom_epoch
         id_device, mac, transport_layer, id_protocol, message_length = headers
         val, batt_level, timestamp = body[:3]
         new_entry.id_device = id_device
@@ -179,10 +180,10 @@ class DatabaseManager:
                 new_entry.ACC_Y = ACC_Y
                 new_entry.ACC_Z = ACC_Z
         new_entry.save()
-        timestamp_now = datetime.datetime.now(datetime.timezone.utc).timestamp()
-        dif_timestamp = timestamp_now - timestamp.timestamp()
+        utc_now = datetime.datetime.now(tz = pytz.utc)
+        dif_timestamp = utc_now.timestamp() - timestamp.timestamp()
         print(
-            f"Timestamp now: {timestamp_now}  Timestamp esp {timestamp.timestamp()} \
+            f"Timestamp now: {utc_now}  Timestamp esp {timestamp.timestamp()} \
             | Diff: {dif_timestamp}"
         )
         dif_in_miliseconds = int(dif_timestamp * 1000)
