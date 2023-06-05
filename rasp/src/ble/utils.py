@@ -335,7 +335,7 @@ class StatefulBleManager:
             self.transition_to(ConnectedState(), client)
             self.transition_to(DisconnectedState())
         else:
-            self.transition_to(ConnectingState())
+           self._run()
 
 
 class StatelessBleManager:
