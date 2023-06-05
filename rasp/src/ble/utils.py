@@ -107,7 +107,7 @@ class Connecting:
     def run(self):
         try:
             self.context.state = self
-            print("Device is connecting")
+            print(f"Device is connecting {self.context.tries} ")
             
             try:
                 connected_device = self.adapter.connect(
