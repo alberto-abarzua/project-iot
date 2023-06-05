@@ -228,6 +228,7 @@ class Connecting:
 
         console.print(f"Trying again: {self.context.tries}", style="warning")
         self.context.tries += 1
+        return False
 
       
 
@@ -330,9 +331,11 @@ class StatefulBleManager:
 
     def _run(self):
         client = self.transition_to(ConnectingState())
-        if client is not None:
+        if client:
             self.transition_to(ConnectedState(), client)
             self.transition_to(DisconnectedState())
+        else:
+            self.transition_to(ConnectingState())
 
 
 class StatelessBleManager:
