@@ -26,7 +26,6 @@ class BleHandshake:
 
     def set_log(self):
         print("Handshake received")
-        time.sleep(1)
         print("Reading data")
         data = self.client.char_read(self.context.characteristic_uuid)
         data_headers = data[:12]
@@ -102,7 +101,6 @@ class Connecting:
         self.context = context
         self.adapter = pygatt.GATTToolBackend()
         self.adapter.start()
-        time.sleep(1)
 
     def run(self):
         try:
@@ -124,7 +122,6 @@ class Connecting:
         except Exception as e:
             print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e}")
             self.context.tries += 1
-            time.sleep(2)  # Sleep before retrying
 
 
 # *****************************************************************************
@@ -256,7 +253,6 @@ class StatelessBleManager:
                 if client is None:
                     continue
                 self.client = client
-                time.sleep(0.2)
                 print("Setting notification callback (start_notify)")
                 self.notify_thread = threading.Thread(target=client.subscribe, args=(self.characteristic_uuid,),
                                       kwargs={"callback": self.notify_callback, "wait_for_response": False})
@@ -265,9 +261,8 @@ class StatelessBleManager:
                 self.read_data = ReadData(self, client)
                 print("Device is connected")
                 
-                print("Setting notification callback (start_notify)")
                 while True:
-                    time.sleep(0.1)
+                    time.sleep(1)
                     if self.data_available:
                         self.ble_handshake.run()
                         self.read_data.run()
@@ -279,7 +274,7 @@ class StatelessBleManager:
             except Exception as e:
                 print(e)
                 print("Error while connecting")
-                time.sleep(0.2)
+                time.sleep(2)
                 continue
 
     def run(self):
