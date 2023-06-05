@@ -17,6 +17,7 @@ dependencies = [
     "pygatt>=4.0.5",
     "pexpect>=4.8.0",
     "pytz>=2023.3",
+    "rich>=13.4.1",
 ]
 requires-python = ">=3.9"
 license = {text = "MIT"}
