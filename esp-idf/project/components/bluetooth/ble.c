@@ -390,15 +390,14 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             memcpy(rsp.attr_value.value, value_ptr,
                    value_length);  // Copy string to value field
             esp_err_t response_ret;
-            response_ret = esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
-                                        param->read.trans_id, ESP_GATT_OK,
-                                        &rsp);
+            response_ret = esp_ble_gatts_send_response(
+                gatts_if, param->read.conn_id, param->read.trans_id,
+                ESP_GATT_OK, &rsp);
             if (response_ret != ESP_OK) {
                 ESP_LOGE(GATTS_TAG, "Send response error\n");
-            }else{
+            } else {
                 ESP_LOGI(GATTS_TAG, "Send response success\n");
             }
-
 
             free(value_ptr);
             break;
@@ -610,7 +609,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                      "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x",
                      param->disconnect.reason);
             esp_ble_gap_start_advertising(&adv_params);
-             gl_profile_tab[PROFILE_A_APP_ID].conn_id = 0xFF;
+            gl_profile_tab[PROFILE_A_APP_ID].conn_id = 0xFF;
             break;
         case ESP_GATTS_CONF_EVT:
             ESP_LOGI(GATTS_TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d",
@@ -719,15 +718,15 @@ void dis_cont_mode_loop() {
 
         set_characteristic_value(gl_profile_tab[PROFILE_A_APP_ID].char_handle,
                                  (uint8_t *)packet, packet_lenght);
-        esp_err_t ret = send_notify("CHK_DATA");
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        esp_err_t ret = send_notify("CHK_DATA");
-        vTaskDelay(3500 / portTICK_PERIOD_MS);//wait for the client to read char
-        if (gl_profile_tab[PROFILE_A_APP_ID].conn_id != 0xFF && ret == ESP_OK ) {
+        esp_err_t ret;
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        ret = send_notify("CHK_DATA");
+        vTaskDelay(8000 /
+                   portTICK_PERIOD_MS);  // wait for the client to read char
+        if (gl_profile_tab[PROFILE_A_APP_ID].conn_id != 0xFF || ret == ESP_OK) {
             ESP_LOGI(GATTS_TAG, "Going to sleep");
             esp_sleep_enable_timer_wakeup(
-                (long long)(BLE_DISC_TIMEOUT_SEC *
-                            1e+6));  
+                (long long)(BLE_DISC_TIMEOUT_SEC * 1e+6));
             esp_deep_sleep_start();
         }
     }
@@ -780,7 +779,16 @@ void main_ble(char mode) {
         ESP_LOGE(GATTS_TAG, "gatts app register error, error code = %x", ret);
         return;
     }
+    config_t config;
+    get_nvs_config(&config);
+    int packet_lenght;
+    ESP_LOGI(GATTS_TAG, "Creating packet UISNG PROTOCOL %d AND TRANS LAYER %c",
+             config.protocol_id, config.trans_layer);
+    char *packet =
+        create_packet(config.protocol_id, &packet_lenght, config.trans_layer);
 
+    set_characteristic_value(gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+                             (uint8_t *)packet, packet_lenght);
     esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
     if (local_mtu_ret) {
         ESP_LOGE(GATTS_TAG, "set local  MTU failed, error code = %x",

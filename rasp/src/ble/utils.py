@@ -290,7 +290,7 @@ class ConnectedState(DeviceState):
                 self.data_available = False
                 if context.transport_layer == "D":
                     context.ble_core.disconnect()
-                    time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4)))
+                    time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))*0.9)
                     return
 
 
@@ -390,7 +390,7 @@ class StatelessBleManager:
                     self.data_available = False
                     if self.transport_layer == "D":
                         self.ble_core.disconnect()
-                        time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4)))
+                        time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))*0.9)
                         return
             except Exception as e:
                 print(e)
