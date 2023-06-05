@@ -109,7 +109,7 @@ class Connecting:
             time.sleep(2)  # Give the adapter some time to start
             try:
                 connected_device = adapter.connect(self.context.device_mac, address_type=pygatt.BLEAddressType.public
-                                                   , timeout=3, auto_reconnect=True)
+                                                   , timeout=10, auto_reconnect=True)
                 print("Connected!")
                 return connected_device
             except Exception as e:
