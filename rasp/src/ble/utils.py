@@ -217,27 +217,19 @@ class Connecting:
         self.context = context
 
     def run(self):
+        self.context.state = self
+        console.print(f"Connecting to device, attempt #[{self.context.tries}] ...",style = "warning")
+
         try:
-            self.context.state = self
-            console.print(f"Connecting to device, attempt # {self.context.tries} ...",style = "warning")
-
-            try:
-                self.context.ble_core.connect()
-                return True
-            except Exception as e:
-                console.print(f"Failed to connect to device: {e}", style="danger")
-
-            console.print(f"Trying again: {self.context.tries}", style="warning")
-            self.context.tries += 1
-
+            self.context.ble_core.connect()
+            return True
         except Exception as e:
-            console.print(
-                f"Exception during connecting, trying again:\
-                  {self.context.tries} \n Error was:\n \t{e}",
-                style="warning",
-            )
-            self.context.tries += 1
+            console.print(f"Failed to connect to device: {e}", style="danger")
 
+        console.print(f"Trying again: {self.context.tries}", style="warning")
+        self.context.tries += 1
+
+      
 
 # *****************************************************************************
 # *                                                                           *
