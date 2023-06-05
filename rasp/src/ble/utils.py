@@ -99,29 +99,28 @@ class ReadData:
 class Connecting:
     def __init__(self, context):
         self.context = context
+        self.adapter = pygatt.GATTToolBackend()
+        self.adapter.start()
+        time.sleep(1)
 
     def run(self):
         try:
             self.context.state = self
             print("Device is connecting")
-            adapter = pygatt.GATTToolBackend()
-            adapter.start()
-            time.sleep(2)  # Give the adapter some time to start
+            
             try:
-                connected_device = adapter.connect(
+                connected_device = self.adapter.connect(
                     self.context.device_mac,
                     address_type=pygatt.BLEAddressType.public,
-                    timeout=20,  # Increase the timeout
+                    timeout=20,  
                     auto_reconnect=True
                 )
                 print("Connected!")
                 return connected_device
             except Exception as e:
                 print(f"Failed to connect to device: {e}")
-            print("Device not found")
             print("Trying again...")
             self.context.tries += 1
-            time.sleep(2)  # Sleep before retrying
 
         except Exception as e:
             print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e}")
