@@ -1,17 +1,18 @@
-from abc import ABC, abstractmethod
-from utils.models import DatabaseManager
-import pygatt
-import time
-import threading
-from utils.packet_parser import PacketParser
-from utils.models import Logs
+import asyncio
 import datetime
 import os
-import asyncio
-import pytz
+import threading
+import time
+from abc import ABC, abstractmethod
+
+import pygatt
 from bleak import BleakClient
-from threading import Thread
-from utils.prints import console,print
+
+from utils.general import diff_to_now_utc_timestamp, now_utc_timestamp
+from utils.models import DatabaseManager, Logs
+from utils.packet_parser import PacketParser
+from utils.prints import console
+
 # *****************************************************************************
 # *                                                                           *
 # *  ***********************    BLE CORE    ***************************  *
@@ -20,23 +21,20 @@ from utils.prints import console,print
 # *                                                                           *
 # *****************************************************************************
 class BleCore:
-
     def __init__():
         pass
 
-    def char_write(self,data):
+    def char_write(self, data):
         raise NotImplementedError
-       
+
     def char_read():
         raise NotImplementedError
 
-    def subscribe(self,notify_function):
+    def subscribe(self, notify_function):
         raise NotImplementedError
-    
+
     def re_create(self):
         raise NotImplementedError
-    
-
 
 
 class PygattCore(BleCore):
@@ -48,14 +46,15 @@ class PygattCore(BleCore):
         self.adapter.start()
         self.connected = False
         self.notify_thread = None
-    
+
     def connect(self):
         if self.client is None:
             self.client = self.adapter.connect(
                 self.device_mac,
                 address_type=pygatt.BLEAddressType.public,
                 timeout=10,
-                auto_reconnect=True)
+                auto_reconnect=True,
+            )
             self.connected = True
 
     def disconnect(self):
@@ -65,21 +64,25 @@ class PygattCore(BleCore):
             self.notify_thread.join()
             self.client = None
             self.connected = False
+
     def char_read(self):
-        return self.client.char_read(self.characteristic_uuid,timeout =3)
-    
-    def char_write(self,data):
+        return self.client.char_read(self.characteristic_uuid, timeout=3)
+
+    def char_write(self, data):
         self.client.char_write(self.characteristic_uuid, data, wait_for_response=False)
 
-    def subscribe(self,notify_function):
-        self.notify_thread = threading.Thread(target=self.client.subscribe, args=(self.characteristic_uuid,),
-                                      kwargs={"callback":notify_function, "wait_for_response": False})
-        self.notify_thread.start()
+    def subscribe(self, notify_function):
+        if self.notify_thread is None:
+            self.notify_thread = threading.Thread(
+                target=self.client.subscribe,
+                args=(self.characteristic_uuid,),
+                kwargs={"callback": notify_function, "wait_for_response": False},
+            )
+            self.notify_thread.start()
 
     def reset(self):
         self.disconnect()
         self.__init__(self.device_mac, self.characteristic_uuid)
-
 
 
 class BleakCore(BleCore):
@@ -97,10 +100,10 @@ class BleakCore(BleCore):
     async def _connect(self):
         self.client = BleakClient(self.device_mac)
         self.connected = await self.client.connect()
-        console.print("Connected!",style = "info")
+        console.print("Connected!", style="info")
 
     def disconnect(self):
-        console.print("Disconnecting...",style = "danger")
+        console.print("Disconnecting...", style="danger")
         self.loop.run_until_complete(self._disconnect())
         self.loop.close()
 
@@ -128,10 +131,8 @@ class BleakCore(BleCore):
     def subscribe(self, notify_function):
         self.loop.run_until_complete(self._subscribe(notify_function))
 
-
     async def _subscribe(self, notify_function):
         if self.client is not None and self.connected:
-            print("Subscribing to characteristic")
             await self.client.start_notify(self.characteristic_uuid, notify_function)
 
     def reset(self):
@@ -148,61 +149,52 @@ class BleakCore(BleCore):
 # *****************************************************************************
 
 
-
 class BleHandshake:
     def __init__(self, context):
         self.context = context
 
     def set_log(self):
-        print("Handshake received")
         data = self.context.ble_core.char_read()
         data_headers, data_body = data[:12], data[12:]
-
 
         parser = PacketParser()
         headers = parser.parse_headers(data_headers)
         id_device, _, transport_layer, id_protocol, _ = headers
         body = parser.parse_body(data_body, id_protocol)
-        custom_epoch = body[2] #custom epoch in millies
 
-        print(f"Handshake from | device id: {id_device} custom_epoch: {custom_epoch}")
+        dif = diff_to_now_utc_timestamp(body[2])
+        now = now_utc_timestamp()
 
-        seconds, milliseconds = divmod(custom_epoch, 1000)
-        custom_epoch = datetime.datetime.fromtimestamp(seconds,tz=pytz.utc)
-        custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
-        utc_now = datetime.datetime.now(tz = pytz.utc)
-        print(f"Handshake | custom epoch {custom_epoch.timestamp()}")
-        custom_epoch_diff = utc_now.timestamp() - custom_epoch.timestamp()
-        print("Handshake | custom epoch diff", custom_epoch_diff)
-        now = datetime.datetime.utcnow()
-        now = now.replace(tzinfo=datetime.timezone.utc).timestamp()
         if self.context.init_timestamp is not None:
             time_to_connect = now - self.context.init_timestamp
             tries = self.context.tries
+
             ble_state_machine = "not using states"
             if os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE":
                 ble_state_machine = "using states"
+
             log = Logs.create(
-                timestamp=datetime.datetime.utcnow(),
+                timestamp=now,
                 id_device=id_device,
-                custom_epoch=custom_epoch_diff,
+                custom_epoch=dif,
                 time_to_connect=time_to_connect,
                 id_protocol=id_protocol,
                 transport_layer=transport_layer,
                 tries=tries,
                 ble_state_machine=ble_state_machine,
             )
-            print("Saving log!")
             log.save()
+            console.print("Log saved!", style="info")
             self.context.init_timestamp = None
 
-
     def run(self):
-        conf = DatabaseManager.get_default_config()
-        first_msg = f"con{conf.transport_layer}{conf.id_protocol}".encode()
-        self.context.ble_core.char_write(first_msg)
-        self.set_log()
+        console.print("Sending first message...", style="info")
 
+        parser = PacketParser()
+        conf = DatabaseManager.get_default_config()
+        self.context.ble_core.char_write(parser.pack_config(conf))
+        self.set_log()
+        console.print("Handshake done!", style="info")
 
 
 class ReadData:
@@ -218,7 +210,6 @@ class ReadData:
         _, _, _, id_protocol, _ = headers
         body = parser.parse_body(data_body, id_protocol)
         DatabaseManager.save_data_to_db(headers, body)
-        print("\t\tData received and saved!")
 
 
 class Connecting:
@@ -228,18 +219,23 @@ class Connecting:
     def run(self):
         try:
             self.context.state = self
-            print(f"Device is connecting {self.context.tries} ")
-            
+            console.print(f"Connecting to device, attempt # {self.context.tries} ...",style = "warning")
+
             try:
                 self.context.ble_core.connect()
                 return True
             except Exception as e:
-                print(f"Failed to connect to device: {e}")
-            print("Trying again...")
+                console.print(f"Failed to connect to device: {e}", style="danger")
+
+            console.print(f"Trying again: {self.context.tries}", style="warning")
             self.context.tries += 1
 
         except Exception as e:
-            print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e}")
+            console.print(
+                f"Exception during connecting, trying again:\
+                  {self.context.tries} \n Error was:\n \t{e}",
+                style="warning",
+            )
             self.context.tries += 1
 
 
@@ -251,6 +247,7 @@ class Connecting:
 # *                                                                           *
 # *****************************************************************************
 
+
 class DeviceState(ABC):
     @abstractmethod
     def handle(self, context):
@@ -260,13 +257,13 @@ class DeviceState(ABC):
 class DisconnectedState(DeviceState):
     def handle(self, context):
         context.state = self
-        print("Device is disconnected")
+        console.print("Device is disconnected", style="warning")
+        context.ble_core.disconnect()
 
 
 class ConnectingState(DeviceState):
     def handle(self, context):
         return Connecting(context).run()
-
 
 
 class ConnectedState(DeviceState):
@@ -276,8 +273,8 @@ class ConnectedState(DeviceState):
 
     def notify_callback(self, handle, value):
         expected_data = b"CHK_DATA"
-        if value == expected_data:
-            print("Notification received - Checking data")
+        if expected_data in value:
+            console.print("\nNotification received - Checking data", style="note")
             self.data_available = True
 
     def handle(self, context, client):
@@ -286,21 +283,22 @@ class ConnectedState(DeviceState):
         self.read_data = ReadData(context)
 
         context.ble_core.subscribe(self.notify_callback)
-
         while True:
-            console.print("Waiting for data...",style = "light_info")
-            context.ble_core.subscribe(self.notify_callback)
+            while True:
+                with console.status("[dim medium_orchid1]Waiting for data...", spinner="dots"):
+                    context.ble_core.subscribe(self.notify_callback)
+                    time.sleep(2)
+                if self.data_available:
+                    break
 
-            time.sleep(2)
             if self.data_available:
                 self.ble_handshake.run()
                 self.read_data.run()
                 self.data_available = False
                 if context.transport_layer == "D":
-                    time.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
-                    client.disconnect()
+                    context.ble_core.disconnect()
+                    time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4)))
                     return
-
 
 
 # *****************************************************************************
@@ -311,8 +309,11 @@ class ConnectedState(DeviceState):
 # *                                                                           *
 # *****************************************************************************
 
+
 class StatefulBleManager:
-    def __init__(self, device_name, characteristic_uuid,device_mac, transport_layer,ble_core):
+    def __init__(
+        self, device_name, characteristic_uuid, device_mac, transport_layer, ble_core
+    ):
         self.ble_core = ble_core
         self.state = DisconnectedState()
         self.device_name = device_name
@@ -321,7 +322,9 @@ class StatefulBleManager:
         self.device_mac = device_mac
         self.tries = 1
         self.init_timestamp = datetime.datetime.utcnow()
-        self.init_timestamp = self.init_timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+        self.init_timestamp = self.init_timestamp.replace(
+            tzinfo=datetime.timezone.utc
+        ).timestamp()
 
     def transition_to(self, state: DeviceState, client=None):
         self.state = state
@@ -337,11 +340,13 @@ class StatefulBleManager:
         client = self.transition_to(ConnectingState())
         if client is not None:
             self.transition_to(ConnectedState(), client)
-            client.disconnect()
             self.transition_to(DisconnectedState())
 
+
 class StatelessBleManager:
-    def __init__(self, device_name, characteristic_uuid,device_mac, transport_layer,ble_core):
+    def __init__(
+        self, device_name, characteristic_uuid, device_mac, transport_layer, ble_core
+    ):
         self.ble_core = ble_core
         self.state = DisconnectedState()
         self.device_name = device_name
@@ -351,15 +356,15 @@ class StatelessBleManager:
         self.data_available = True
         self.tries = 1
         self.init_timestamp = datetime.datetime.utcnow()
-        self.init_timestamp = self.init_timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+        self.init_timestamp = self.init_timestamp.replace(
+            tzinfo=datetime.timezone.utc
+        ).timestamp()
         self.notify_thread = None
-        
 
     def notify_callback(self, handle, value):
         expected_data = b"CHK_DATA"
-        print("Notification received")
         if expected_data in value:
-            print("Notification received - Checking data")
+            console.print("\nNotification received - Checking data", style="note")
             self.data_available = True
 
     def transition_to(self, state: DeviceState, client=None):
@@ -371,26 +376,27 @@ class StatelessBleManager:
                 Connecting(self).run()
                 if not self.ble_core.connected:
                     continue
-                print("Setting notification callback (start_notify)")
                 self.ble_core.subscribe(self.notify_callback)
-              
+
                 self.ble_handshake = BleHandshake(self)
                 self.read_data = ReadData(self)
-                self.ble_core.subscribe(self.notify_callback)
-                
-                
+
                 while True:
-                    time.sleep(1)
-                    console.print("Waiting for data...",style = "light_info")
-                    self.ble_core.subscribe(self.notify_callback)
-                    if self.data_available:
-                        self.ble_handshake.run()
-                        self.read_data.run()
-                        self.data_available = False
-                        if self.transport_layer == "D":
-                            time.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
-                            self.ble_core.disconnect()
-                            return
+                    with console.status("[dim medium_orchid1]Waiting for data...", spinner="dots"):
+                        self.ble_core.subscribe(self.notify_callback)
+                        time.sleep(2)
+                    
+                        if self.data_available:
+                            break
+                    
+                if self.data_available:
+                    self.ble_handshake.run()
+                    self.read_data.run()
+                    self.data_available = False
+                    if self.transport_layer == "D":
+                        self.ble_core.disconnect()
+                        time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4)))
+                        return
             except Exception as e:
                 print(e)
                 print("Error while connecting")
@@ -402,26 +408,34 @@ class StatelessBleManager:
         self._run()
 
 
-
 class BleManager:
-
-    def __init__(self, device_name, characteristic_uuid, device_mac,transport_layer):
+    def __init__(self, device_name, characteristic_uuid, device_mac, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.device_mac = device_mac
-        self.ble_core = PygattCore(self.device_mac, self.characteristic_uuid)
-        # self.ble_core = BleakCore(self.device_mac, self.characteristic_uuid)
+        ble_core_var = os.environ.get("BLE_CORE", "pygatt").upper()
+        if ble_core_var == "BLEAK":
+            self.ble_core = BleakCore(self.device_mac, self.characteristic_uuid)
+        else:
+            self.ble_core = PygattCore(self.device_mac, self.characteristic_uuid)
         self.transport_layer = transport_layer
         self.use_states = os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE"
-        print(f"Starting BLE manager using mode: -->  {self.transport_layer} and using states: {self.use_states}")
+        mode_verbose = "BLE continious" if self.transport_layer == "C" else "BLE discontinious"
+        console.print(
+            f"Starting BLE manager:\n\t- using mode: {mode_verbose}\n\t-\
+              using states: {self.use_states}",
+            style="setup",
+        )
 
-        if (self.use_states):
+        if self.use_states:
             self.manager = StatefulBleManager(
-                device_name, characteristic_uuid,device_mac, transport_layer,self.ble_core)
+                device_name, characteristic_uuid, device_mac, transport_layer, self.ble_core
+            )
         else:
             self.manager = StatelessBleManager(
-                device_name, characteristic_uuid,device_mac, transport_layer,self.ble_core)
+                device_name, characteristic_uuid, device_mac, transport_layer, self.ble_core
+            )
 
     def run(self):
         self.manager.run()

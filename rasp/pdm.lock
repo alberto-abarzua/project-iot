@@ -251,6 +251,7 @@ summary = "Backported and Experimental Type Hints for Python 3.7+"
 
 [metadata]
 lock_version = "4.2"
+cross_platform = true
 groups = ["default"]
 content_hash = "sha256:6a44b8a980399866fccf988544d8060da1074af2a073ca024831eab60079a627"
 

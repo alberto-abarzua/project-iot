@@ -1,18 +1,15 @@
 import datetime
 import os
 import socket
-import sys
-import threading
 
 from utils.exceptions import LossException
-from utils.models import Data, DatabaseManager, Logs, Loss
+from utils.models import DatabaseManager, Logs, Loss
 from utils.packet_parser import PacketParser
 
 TIMEOUT_TOLERANCE = 10
 
 
 class HandShakeServer:
-
     def start_handshake(self):
         success = False
         SESP_PORT_HANDSHAKE = os.environ.get("SESP_PORT_HANDSHAKE")
@@ -21,22 +18,26 @@ class HandShakeServer:
         server_socket.bind(("0.0.0.0", int(SESP_PORT_HANDSHAKE)))
         server_socket.listen(5)
 
-        client_socket, client_address = server_socket.accept()
-        print("Starting handshake")
-        # wait for "helo bro"
+        client_socket, _ = server_socket.accept()
         data = client_socket.recv(1024)
+
         if b"hb" in data:
             id_device = data[3:5]
-            custom_epoch = data[5: 5 + 8]
+            custom_epoch = data[5 : 5 + 8]
             # convert to int
             id_device = int.from_bytes(id_device, byteorder="little")
             custom_epoch_millis = int.from_bytes(custom_epoch, byteorder="little")
-            print("Handshake received from device", id_device,
-                  "custom epoch", custom_epoch_millis)
+            print(
+                "Handshake received from device",
+                id_device,
+                "custom epoch",
+                custom_epoch_millis,
+            )
 
             seconds, milliseconds = divmod(custom_epoch_millis, 1000)
-            custom_epoch = datetime.datetime.utcfromtimestamp(
-                seconds).replace(tzinfo=datetime.timezone.utc)
+            custom_epoch = datetime.datetime.utcfromtimestamp(seconds).replace(
+                tzinfo=datetime.timezone.utc
+            )
             custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
             # When not using sntp:
             print("custom_epcho, time", custom_epoch.timestamp())
@@ -84,6 +85,7 @@ class HandShakeServer:
 # *  *************** <><><><><><><><><><><><><><><><><><><><> *************  *
 # *                                                                           *
 # *****************************************************************************
+
 
 class TcpServer:
     def recv_in_chunks(self, socket, total, chunk_size=1024):
@@ -176,7 +178,7 @@ class TcpServer:
 
 
 class UdpServer:
-    def recv_headers(self,socket):
+    def recv_headers(self, socket):
         try:
             headers, _ = socket.recvfrom(12)
         except TimeoutError:
@@ -184,8 +186,7 @@ class UdpServer:
             raise LossException(12)
         return headers
 
-
-    def recv_in_chunks(self,socket, total, chunk_size=1024):
+    def recv_in_chunks(self, socket, total, chunk_size=1024):
         data = b""
         while len(data) < total:
             chunk_size = min(chunk_size, total - len(data))
@@ -198,7 +199,6 @@ class UdpServer:
                 break
             data += chunk
         return data
-
 
     def run(self):
         start_time = datetime.datetime.utcnow()
@@ -247,5 +247,3 @@ class UdpServer:
                     server_socket.shutdown(socket.SHUT_RDWR)
                     server_socket.close()
                     exit(1)
-
-

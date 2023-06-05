@@ -468,7 +468,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
 
                 config_t config;
                 config.trans_layer = param->write.value[3];
-                config.protocol_id = param->write.value[4] - 48;
+                config.protocol_id = param->write.value[4];
                 set_nvs_config(config);
                 vTaskDelay(500 / portTICK_PERIOD_MS);
                 // PRINT CONFIGS
@@ -719,6 +719,8 @@ void dis_cont_mode_loop() {
 
         set_characteristic_value(gl_profile_tab[PROFILE_A_APP_ID].char_handle,
                                  (uint8_t *)packet, packet_lenght);
+        esp_err_t ret = send_notify("CHK_DATA");
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         esp_err_t ret = send_notify("CHK_DATA");
         vTaskDelay(3500 / portTICK_PERIOD_MS);//wait for the client to read char
         if (gl_profile_tab[PROFILE_A_APP_ID].conn_id != 0xFF && ret == ESP_OK ) {

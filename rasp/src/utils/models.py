@@ -12,7 +12,9 @@ from peewee import (
     PostgresqlDatabase,
     TimestampField,
 )
-import pytz
+
+from utils.general import diff_to_now_utc_timestamp, milis_to_utc_timestamp
+from utils.prints import console
 
 db = PostgresqlDatabase(
     os.environ.get("POSTGRES_DB"),
@@ -101,18 +103,19 @@ class DatabaseManager:
 
     @staticmethod
     def db_init():
-        print("Initializing database")
+        console.print("Initializing database", style="setup")
         db.connect()
-        print("getting default config")
-        # drop tables
         if os.environ.get("DROP_DB_ON_START", "TRUE").upper() == "TRUE":
             try:
                 db.drop_tables(DatabaseManager.MODELS)
-            except:
+            except Exception as e:
+                print(e)
                 pass
 
         db.create_tables(DatabaseManager.MODELS)
-        print(DatabaseManager.get_default_config())
+
+        current_config = DatabaseManager.get_default_config()
+        console.print(f"Current config: {current_config}", style="setup")
 
     @staticmethod
     def db_close():
@@ -121,16 +124,15 @@ class DatabaseManager:
     @staticmethod
     def get_last_log():
         res = Logs.select().order_by(Logs.id.desc()).get()
-        print("last log", res.timestamp.timestamp(), res.custom_epoch.timestamp())
         return res
 
     @staticmethod
     def get_default_config():
-        config, _ = Config.get_or_create(
+        config, created = Config.get_or_create(
             config_name="default",
             defaults={
-                "id_protocol": 0,
-                "transport_layer": "C",
+                "id_protocol": int(os.environ.get("DEFAULT_PROTOCOL", 0)),
+                "transport_layer": os.environ.get("DEFAULT_TRANSPORT_LAYER", "T"),
                 "last_access": datetime.datetime.utcnow(),
             },
         )
@@ -138,27 +140,27 @@ class DatabaseManager:
 
     @staticmethod
     def save_data_to_db(headers, body):
-        print("Saving to db")
+        console.print("Saving data to database ...", style="info", end=" ")
         new_entry = Data.create()
         custom_epoch = DatabaseManager.get_last_log().custom_epoch
         id_device, mac, transport_layer, id_protocol, message_length = headers
-        val, batt_level, timestamp = body[:3]
+        val, batt_level, raw_timestamp = body[:3]
+        raw_timestamp += custom_epoch.timestamp() * 1000
+
+        timestamp = milis_to_utc_timestamp(raw_timestamp)
+
         new_entry.id_device = id_device
-        new_entry.mac = ''.join(format(x, '02x') for x in mac)
-        print(mac)
+        new_entry.mac = "".join(format(x, "02x") for x in mac)
         new_entry.transport_layer = transport_layer
         new_entry.id_protocol = id_protocol
         new_entry.message_length = message_length
         new_entry.val = val
         new_entry.batt_level = batt_level
-        timestamp += custom_epoch.timestamp() * 1000
-        seconds, milliseconds = divmod(timestamp, 1000)
-        timestamp = datetime.datetime.utcfromtimestamp(
-            seconds).replace(tzinfo=datetime.timezone.utc)
-        timestamp = timestamp.replace(microsecond=int(milliseconds * 1000))
+
         new_entry.timestamp = timestamp
+
         if id_protocol >= 1:
-            temp, press, hum, Co = body[3: 3 + 4]
+            temp, press, hum, Co = body[3 : 3 + 4]
             new_entry.temp = temp
             new_entry.press = press
             new_entry.hum = hum
@@ -180,11 +182,8 @@ class DatabaseManager:
                 new_entry.ACC_Y = ACC_Y
                 new_entry.ACC_Z = ACC_Z
         new_entry.save()
-        utc_now = datetime.datetime.now(tz = pytz.utc)
-        dif_timestamp = utc_now.timestamp() - timestamp.timestamp()
-        print(
-            f"Timestamp now: {utc_now}  Timestamp esp {timestamp.timestamp()} \
-            | Diff: {dif_timestamp}"
-        )
-        dif_in_miliseconds = int(dif_timestamp * 1000)
+        console.print("Data saved to database", style="important")
+        dif = diff_to_now_utc_timestamp(raw_timestamp)
+        console.print(f"\nLatency: {dif:.5f}\n\n", style="important")
+        dif_in_miliseconds = int(dif * 1000)
         Loss.get_or_create(data=new_entry, bytes_lost=0, latency=dif_in_miliseconds)
