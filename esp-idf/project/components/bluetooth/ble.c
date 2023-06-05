@@ -603,6 +603,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                      "ESP_GATTS_DISCONNECT_EVT, disconnect reason 0x%x",
                      param->disconnect.reason);
             esp_ble_gap_start_advertising(&adv_params);
+             gl_profile_tab[PROFILE_A_APP_ID].conn_id = 0xFF;
             break;
         case ESP_GATTS_CONF_EVT:
             ESP_LOGI(GATTS_TAG, "ESP_GATTS_CONF_EVT, status %d attr_handle %d",
@@ -776,6 +777,7 @@ void main_ble(char mode) {
         ESP_LOGE(GATTS_TAG, "set local  MTU failed, error code = %x",
                  local_mtu_ret);
     }
+    gl_profile_tab[PROFILE_A_APP_ID].conn_id = 0xFF;
     if (mode == 'D') {
         dis_cont_mode_loop();
     } else {

@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from utils.models import DatabaseManager
-from bleak import BleakClient, BleakScanner
-import asyncio
+import pygatt
+import time
+import threading
 from utils.packet_parser import PacketParser
 from utils.models import Logs
 import datetime
@@ -16,37 +17,37 @@ import os
 # *****************************************************************************
 
 
+
 class BleHandshake:
     def __init__(self, context, client):
         self.client = client
         self.context = context
 
-    async def set_log(self):
+    def set_log(self):
         print("Handshake received")
-        data = await self.client.read_gatt_char(self.context.characteristic_uuid)
+        data = self.client.char_read(self.context.characteristic_uuid)
         data_headers = data[:12]
         data_body = data[12:]
 
         parser = PacketParser()
         headers = parser.parse_headers(data_headers)
-        id_device, _, trasnport_layer, id_protocol, _ = headers
+        id_device, _, transport_layer, id_protocol, _ = headers
         body = parser.parse_body(data_body, id_protocol)
         custom_epoch = body[2]
 
         print(f"Handshake from | device id: {id_device} custom_epoch: {custom_epoch}")
 
         seconds, milliseconds = divmod(custom_epoch, 1000)
-        custom_epoch = datetime.datetime.utcfromtimestamp(
-            seconds).replace(tzinfo=datetime.timezone.utc)
+        custom_epoch = datetime.datetime.utcfromtimestamp(seconds).replace(tzinfo=datetime.timezone.utc)
         custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
 
         print(f"Handshake | custom epoch {custom_epoch.timestamp()}")
-        custom_epoch = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
+        custom_epoch_diff = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
 
         now = datetime.datetime.utcnow()
         now = now.replace(tzinfo=datetime.timezone.utc).timestamp()
-        if self.context.init_timesamp is not None:
-            time_to_connect = now - self.context.init_timesamp
+        if self.context.init_timestamp is not None:
+            time_to_connect = now - self.context.init_timestamp
             tries = self.context.tries
             ble_state_machine = "not using states"
             if os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE":
@@ -54,24 +55,25 @@ class BleHandshake:
             log = Logs.create(
                 timestamp=datetime.datetime.utcnow(),
                 id_device=id_device,
-                custom_epoch=custom_epoch,
+                custom_epoch=custom_epoch_diff,
                 time_to_connect=time_to_connect,
                 id_protocol=id_protocol,
-                transport_layer=trasnport_layer,
+                transport_layer=transport_layer,
                 tries=tries,
                 ble_state_machine=ble_state_machine,
             )
             print("Saving log!")
             log.save()
-            self.context.init_timesamp = None
+            self.context.init_timestamp = None
 
-    async def run(self):
+    def run(self):
         conf = DatabaseManager.get_default_config()
         first_msg = f"con{conf.transport_layer}{conf.id_protocol}".encode()
         print("Starting the handshake")
-        await self.client.write_gatt_char(self.context.characteristic_uuid, first_msg)
-        await self.set_log()
+        self.client.char_write(self.context.characteristic_uuid, first_msg)
+        self.set_log()
         print("Handshake completed")
+
 
 
 class ReadData:
@@ -79,8 +81,8 @@ class ReadData:
         self.client = client
         self.context = context
 
-    async def run(self):
-        data = await self.client.read_gatt_char(self.context.characteristic_uuid)
+    def run(self):
+        data = self.client.char_read(self.context.characteristic_uuid)
         data_headers = data[:12]
         data_body = data[12:]
         parser = PacketParser()
@@ -95,32 +97,26 @@ class Connecting:
     def __init__(self, context):
         self.context = context
 
-    async def run(self):
+    def run(self):
         try:
             self.context.state = self
             print("Device is connecting")
-            scanner = BleakScanner()
-            devices = await scanner.discover()
-            print("Discovered devices:")
-            [print(device) for device in devices]
-            print("\n\n")
-            for device in devices:
-                if device.name == self.context.device_name:
-                    print(f"Device found: {device}")
-                    client = BleakClient(device, timeout=60)
-                    await client.connect()
-                    print("Connected!")
-                    # self.context.succesful_connection_timestamp = datetime.datetime.utcnow()
-                    # self.context.succesful_connection_timestamp.replace(tzinfo=datetime.timezone.utc)
-                    return client
+            adapter = pygatt.GATTToolBackend()
+            adapter.start()
+            time.sleep(2)  # Give the adapter some time to start
+            try:
+                connected_device = adapter.connect(self.context.device_mac, address_type=pygatt.BLEAddressType.public)
+                print("Connected!")
+                return connected_device
+            except Exception as e:
+                print(f"Failed to connect to device: {e}")
             print("Device not found")
             print("Trying again...")
             raise TimeoutError("Failed to connect")
+        
         except Exception as e:
-            print(
-                f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e} ")
+            print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e}")
             self.context.tries += 1
-            await self.context.transition_to(ConnectingState())
             return None
 
 
@@ -134,50 +130,55 @@ class Connecting:
 
 class DeviceState(ABC):
     @abstractmethod
-    async def handle(self, context):
+    def handle(self, context):
         pass
 
 
 class DisconnectedState(DeviceState):
-    async def handle(self, context):
+    def handle(self, context):
         context.state = self
         print("Device is disconnected")
 
 
 class ConnectingState(DeviceState):
-    async def handle(self, context):
-        return await Connecting(context).run()
+    def handle(self, context):
+        return Connecting(context).run()
+
 
 
 class ConnectedState(DeviceState):
     def __init__(self):
         self.data_available = True
+        self.notify_thread = None
 
-    def notify_callback(self, sender, data):
+    def notify_callback(self, handle, value):
         expected_data = b"CHK_DATA"
-        if data == expected_data:
+        if value == expected_data:
             print("Notification received - Checking data")
             self.data_available = True
 
-    async def handle(self, context, client):
+    def handle(self, context, client):
         context.state = self
         self.ble_handshake = BleHandshake(context, client)
         self.read_data = ReadData(context, client)
         print("Device is connected")
-        await self.ble_handshake.run()
-        await asyncio.sleep(0.3)
         print("Setting notification callback (start_notify)")
-        await client.start_notify(context.characteristic_uuid, self.notify_callback)
+
+        # client.subscribe(context.characteristic_uuid, callback=self.notify_callback)
+        self.notify_thread = threading.Thread(target=client.subscribe, args=(context.characteristic_uuid,), kwargs={"callback": self.notify_callback})
+        self.notify_thread.start()
+        self.ble_handshake.run()
         while True:
-            await asyncio.sleep(0.1)
+            time.sleep(0.1)
             if self.data_available:
-                await self.ble_handshake.run()
-                await self.read_data.run()
+                self.ble_handshake.run()
+                self.read_data.run()
                 self.data_available = False
                 if context.transport_layer == "D":
-                    await asyncio.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
-                    await client.disconnect()
+                    time.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
+                    client.disconnect()
                     return
+
 
 
 # *****************************************************************************
@@ -188,113 +189,115 @@ class ConnectedState(DeviceState):
 # *                                                                           *
 # *****************************************************************************
 
-
-class StatefullBleManager:
-    def __init__(self, device_name, characteristic_uuid, transport_layer):
+class StatefulBleManager:
+    def __init__(self, device_name, characteristic_uuid,device_mac, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
+        self.device_mac = device_mac
         self.tries = 1
-        self.init_timesamp = datetime.datetime.utcnow()
-        self.init_timesamp = self.init_timesamp.replace(
-            tzinfo=datetime.timezone.utc).timestamp()
+        self.init_timestamp = datetime.datetime.utcnow()
+        self.init_timestamp = self.init_timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
 
-    async def transition_to(self, state: DeviceState, client=None):
+    def transition_to(self, state: DeviceState, client=None):
         self.state = state
         if client is None:
-            return await self.state.handle(self)
+            return self.state.handle(self)
         else:
-            return await self.state.handle(self, client)
+            return self.state.handle(self, client)
 
     def run(self):
-        asyncio.run(self._run())
+        self._run()
 
-    async def _run(self):
-        client = await self.transition_to(ConnectingState())
+    def _run(self):
+        client = self.transition_to(ConnectingState())
         if client is not None:
-            await self.transition_to(ConnectedState(), client)
-            await client.disconnect()
-            await self.transition_to(DisconnectedState())
-
+            self.transition_to(ConnectedState(), client)
+            client.disconnect()
+            self.transition_to(DisconnectedState())
 
 class StatelessBleManager:
-
-    def __init__(self, device_name, characteristic_uuid, transport_layer):
+    def __init__(self, device_name, characteristic_uuid,device_mac, transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
         self.transport_layer = transport_layer
+        self.device_mac = device_mac
         self.data_available = True
         self.tries = 1
-        self.init_timesamp = datetime.datetime.utcnow()
-        self.init_timesamp = self.init_timesamp.replace(
-            tzinfo=datetime.timezone.utc).timestamp()
+        self.init_timestamp = datetime.datetime.utcnow()
+        self.init_timestamp = self.init_timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+        self.notification_thread = None
 
-    def notify_callback(self, sender, data):
+    def notify_callback(self, handle, value):
         expected_data = b"CHK_DATA"
-        if data == expected_data:
+        if value == expected_data:
             print("Notification received - Checking data")
             self.data_available = True
 
-    async def transition_to(self, state: DeviceState, client=None):
+    def transition_to(self, state: DeviceState, client=None):
         return None
 
-    async def _run(self):
+    def _run(self):
 
         self.connecting = Connecting(self)
 
         while True:
             try:
-                client = await self.connecting.run()
+                client = self.connecting.run()
                 if client is None:
                     continue
                 self.client = client
-                await asyncio.sleep(0.2)
+                time.sleep(0.2)
                 print("Setting notification callback (start_notify)")
-                self.ble_handshake = BleHandshake(self, client)
-                self.read_data = ReadData(self, client)
+                # self.client.subscribe(self.characteristic_uuid, callback=self.notify_callback)
+                # run this on thread
+                self.notification_thread = threading.Thread(target=self.client.subscribe, args=(self.characteristic_uuid,), kwargs={"callback": self.notify_callback})
+                self.notification_thread.start()
                 self.ble_handshake = BleHandshake(self, client)
                 self.read_data = ReadData(self, client)
                 print("Device is connected")
-                await self.ble_handshake.run()
+                self.ble_handshake.run()
                 print("Setting notification callback (start_notify)")
-                await client.start_notify(self.characteristic_uuid, self.notify_callback)
                 while True:
-                    await asyncio.sleep(0.1)
+                    time.sleep(0.1)
                     if self.data_available:
-                        await self.ble_handshake.run()
-                        await self.read_data.run()
+                        self.ble_handshake.run()
+                        self.read_data.run()
                         self.data_available = False
                         if self.transport_layer == "D":
-                            await asyncio.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
-                            await client.disconnect()
+                            time.sleep(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))
+                            self.client.disconnect()
                             return
             except Exception as e:
                 print(e)
                 print("Error while connecting")
-                await asyncio.sleep(0.2)
+                time.sleep(0.2)
                 continue
 
     def run(self):
-        asyncio.run(self._run())
+        self._run()
+
 
 
 class BleManager:
 
-    def __init__(self, device_name, characteristic_uuid, transport_layer):
+    def __init__(self, device_name, characteristic_uuid, device_mac,transport_layer):
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
+        self.device_mac = device_mac
         self.transport_layer = transport_layer
         self.use_states = os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE"
-        print(f"Starting BLE manager using mode: --> ?? {self.transport_layer}")
+        print(f"Starting BLE manager using mode: -->  {self.transport_layer} and using states: {self.use_states}")
+
         if (self.use_states):
-            self.manager = StatefullBleManager(
-                device_name, characteristic_uuid, transport_layer)
+            self.manager = StatefulBleManager(
+                device_name, characteristic_uuid,device_mac, transport_layer)
         else:
             self.manager = StatelessBleManager(
-                device_name, characteristic_uuid, transport_layer)
+                device_name, characteristic_uuid,device_mac, transport_layer)
 
     def run(self):
         self.manager.run()

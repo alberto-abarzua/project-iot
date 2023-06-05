@@ -14,6 +14,8 @@ dependencies = [
     "isort>=5.12.0",
     "black>=23.3.0",
     "bleak>=0.20.2",
+    "pygatt>=4.0.5",
+    "pexpect>=4.8.0",
 ]
 requires-python = ">=3.9"
 license = {text = "MIT"}

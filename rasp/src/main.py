@@ -6,9 +6,6 @@ from utils.models import DatabaseManager
 
 
 
-MODE = "BLE"
-
-
 def main():
     DatabaseManager.db_init()
     config = DatabaseManager.get_default_config()
