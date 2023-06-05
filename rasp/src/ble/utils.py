@@ -101,27 +101,35 @@ class Connecting:
         self.context = context
 
     def run(self):
-        try:
-            self.context.state = self
-            print("Device is connecting")
-            adapter = pygatt.GATTToolBackend()
-            adapter.start()
-            time.sleep(2)  # Give the adapter some time to start
+        while self.context.tries < self.context.max_retries:  # Define max_retries in your context
             try:
-                connected_device = adapter.connect(self.context.device_mac, address_type=pygatt.BLEAddressType.public
-                                                   , timeout=10, auto_reconnect=True)
-                print("Connected!")
-                return connected_device
+                self.context.state = self
+                print("Device is connecting")
+                adapter = pygatt.GATTToolBackend()
+                adapter.start()
+                time.sleep(2)  # Give the adapter some time to start
+                try:
+                    connected_device = adapter.connect(
+                        self.context.device_mac,
+                        address_type=pygatt.BLEAddressType.public,
+                        timeout=20,  # Increase the timeout
+                        auto_reconnect=True
+                    )
+                    print("Connected!")
+                    return connected_device
+                except Exception as e:
+                    print(f"Failed to connect to device: {e}")
+                print("Device not found")
+                print("Trying again...")
+                self.context.tries += 1
+                time.sleep(2)  # Sleep before retrying
+
             except Exception as e:
-                print(f"Failed to connect to device: {e}")
-            print("Device not found")
-            print("Trying again...")
-            raise TimeoutError("Failed to connect")
-        
-        except Exception as e:
-            print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e}")
-            self.context.tries += 1
-            return None
+                print(f"Exception in CONNECTING, trying again: {self.context.tries} \n Error was:\n \t{e}")
+                self.context.tries += 1
+                time.sleep(2)  # Sleep before retrying
+
+        raise TimeoutError("Failed to connect after maximum retries")
 
 
 # *****************************************************************************
