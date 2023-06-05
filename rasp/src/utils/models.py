@@ -154,7 +154,7 @@ class DatabaseManager:
         seconds, milliseconds = divmod(timestamp, 1000)
         timestamp = datetime.datetime.utcfromtimestamp(
             seconds).replace(tzinfo=datetime.timezone.utc)
-        timestamp = timestamp.replace(microsecond=int(milliseconds) * 1000)
+        timestamp = timestamp.replace(microsecond=int(milliseconds * 1000))
         new_entry.timestamp = timestamp
         if id_protocol >= 1:
             temp, press, hum, Co = body[3: 3 + 4]

@@ -27,7 +27,7 @@ class BleHandshake:
         print("Handshake received")
         time.sleep(1)
         print("Reading data")
-        data = self.client.char_read(self.context.characteristic_uuid,timeout = 10)
+        data = self.client.char_read(self.context.characteristic_uuid)
         data_headers = data[:12]
         data_body = data[12:]
 
