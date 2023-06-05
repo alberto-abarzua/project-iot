@@ -111,9 +111,7 @@ class Connecting:
             try:
                 connected_device = self.adapter.connect(
                     self.context.device_mac,
-                    address_type=pygatt.BLEAddressType.public,
-                    timeout=20,  
-                    auto_reconnect=True
+                    address_type=pygatt.BLEAddressType.public
                 )
                 print("Connected!")
                 return connected_device
