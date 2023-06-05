@@ -7,7 +7,7 @@ from utils.packet_parser import PacketParser
 from utils.models import Logs
 import datetime
 import os
-
+import asyncio
 # *****************************************************************************
 # *                                                                           *
 # *  ***********************    BLE STEPS    ***************************  *
@@ -25,7 +25,9 @@ class BleHandshake:
 
     def set_log(self):
         print("Handshake received")
-        data = self.client.char_read(self.context.characteristic_uuid)
+        time.sleep(1)
+        print("Reading data")
+        data = self.client.char_read(self.context.characteristic_uuid,timeout = 10)
         data_headers = data[:12]
         data_body = data[12:]
 
@@ -66,11 +68,12 @@ class BleHandshake:
             log.save()
             self.context.init_timestamp = None
 
+
     def run(self):
         conf = DatabaseManager.get_default_config()
         first_msg = f"con{conf.transport_layer}{conf.id_protocol}".encode()
         print("Starting the handshake")
-        self.client.char_write(self.context.characteristic_uuid, first_msg)
+        self.client.char_write(self.context.characteristic_uuid, first_msg, wait_for_response=False)
         self.set_log()
         print("Handshake completed")
 
@@ -105,8 +108,8 @@ class Connecting:
             adapter.start()
             time.sleep(2)  # Give the adapter some time to start
             try:
-                connected_device = adapter.connect(self.context.device_mac, address_type=pygatt.BLEAddressType.public,
-                                                   timeout = 10, auto_reconnect=True)
+                connected_device = adapter.connect(self.context.device_mac, address_type=pygatt.BLEAddressType.public
+                                                   , timeout=3, auto_reconnect=True)
                 print("Connected!")
                 return connected_device
             except Exception as e:
@@ -149,7 +152,7 @@ class ConnectingState(DeviceState):
 
 class ConnectedState(DeviceState):
     def __init__(self):
-        self.data_available = True
+        self.data_available = False
         self.notify_thread = None
 
     def notify_callback(self, handle, value):
@@ -165,12 +168,11 @@ class ConnectedState(DeviceState):
         print("Device is connected")
         print("Setting notification callback (start_notify)")
 
-        # client.subscribe(context.characteristic_uuid, callback=self.notify_callback)
-        self.notify_thread = threading.Thread(target=client.subscribe, args=(context.characteristic_uuid,), kwargs={"callback": self.notify_callback})
+        self.notify_thread = threading.Thread(target=client.subscribe, args=(context.characteristic_uuid,),
+                                      kwargs={"callback": self.notify_callback, "wait_for_response": False})
         self.notify_thread.start()
-        self.ble_handshake.run()
         while True:
-            time.sleep(0.1)
+            time.sleep(2)
             if self.data_available:
                 self.ble_handshake.run()
                 self.read_data.run()
@@ -229,7 +231,7 @@ class StatelessBleManager:
         self.tries = 1
         self.init_timestamp = datetime.datetime.utcnow()
         self.init_timestamp = self.init_timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
-        self.notification_thread = None
+        self.notify_thread = None
 
     def notify_callback(self, handle, value):
         expected_data = b"CHK_DATA"
@@ -254,12 +256,13 @@ class StatelessBleManager:
                 print("Setting notification callback (start_notify)")
                 # self.client.subscribe(self.characteristic_uuid, callback=self.notify_callback)
                 # run this on thread
-                self.notification_thread = threading.Thread(target=self.client.subscribe, args=(self.characteristic_uuid,), kwargs={"callback": self.notify_callback})
-                self.notification_thread.start()
+                self.notify_thread = threading.Thread(target=client.subscribe, args=(self.characteristic_uuid,),
+                                      kwargs={"callback": self.notify_callback, "wait_for_response": False})
+                self.notify_thread.start()
                 self.ble_handshake = BleHandshake(self, client)
                 self.read_data = ReadData(self, client)
                 print("Device is connected")
-                self.ble_handshake.run()
+                # self.ble_handshake.run()
                 print("Setting notification callback (start_notify)")
                 while True:
                     time.sleep(0.1)

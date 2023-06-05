@@ -389,10 +389,16 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             rsp.attr_value.len = value_length;  // Set length to string length
             memcpy(rsp.attr_value.value, value_ptr,
                    value_length);  // Copy string to value field
-
-            esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
+            esp_err_t response_ret;
+            response_ret = esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
                                         param->read.trans_id, ESP_GATT_OK,
                                         &rsp);
+            if (response_ret != ESP_OK) {
+                ESP_LOGE(GATTS_TAG, "Send response error\n");
+            }else{
+                ESP_LOGI(GATTS_TAG, "Send response success\n");
+            }
+
 
             free(value_ptr);
             break;
@@ -420,6 +426,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                             for (int i = 0; i < sizeof(notify_data); ++i) {
                                 notify_data[i] = i % 0xff;
                             }
+                            param->write.need_rsp = 1;
                             // the size of notify_data[] need less than MTU size
                             esp_ble_gatts_send_indicate(
                                 gatts_if, param->write.conn_id,
