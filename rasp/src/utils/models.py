@@ -13,6 +13,9 @@ from peewee import (
     TimestampField,
 )
 
+from utils.general import diff_to_now_utc_timestamp, milis_to_utc_timestamp
+from utils.prints import console
+
 db = PostgresqlDatabase(
     os.environ.get("POSTGRES_DB"),
     user=os.environ.get("POSTGRES_USER"),
@@ -67,7 +70,10 @@ class Logs(Model):
     id_device = IntegerField()
     transport_layer = CharField()
     id_protocol = CharField()
+    time_to_connect = TimestampField(resolution=3, null=True)
     custom_epoch = TimestampField(resolution=3, null=True)
+    tries = IntegerField()
+    ble_state_machine = CharField()
 
     class Meta:
         database = db
@@ -95,34 +101,89 @@ class Config(Model):
 class DatabaseManager:
     MODELS = [Data, Logs, Config, Loss]
 
-    def db_init(self):
-        print("Initializing database")
+    @staticmethod
+    def db_init():
+        console.print("Initializing database", style="setup")
         db.connect()
-        print("getting default config")
-        print(self.get_default_config())
+        if os.environ.get("DROP_DB_ON_START", "TRUE").upper() == "TRUE":
+            try:
+                db.drop_tables(DatabaseManager.MODELS)
+            except Exception as e:
+                print(e)
+                pass
 
-        # try:
-        #     db.drop_tables(self.MODELS)
-        # except Exception as e:
-        #     print(e)  
-        #     pass
-        db.create_tables(self.MODELS)
+        db.create_tables(DatabaseManager.MODELS)
 
-    def db_close(self):
+        current_config = DatabaseManager.get_default_config()
+        console.print(f"Current config: {current_config}", style="setup")
+
+    @staticmethod
+    def db_close():
         db.close()
 
-    def get_last_log(self):
+    @staticmethod
+    def get_last_log():
         res = Logs.select().order_by(Logs.id.desc()).get()
-        print("last log",res.timestamp.timestamp(),res.custom_epoch.timestamp())
         return res
 
-    def get_default_config(self):
-        config, _ = Config.get_or_create(
+    @staticmethod
+    def get_default_config():
+        config, created = Config.get_or_create(
             config_name="default",
             defaults={
-                "id_protocol": 4,
-                "transport_layer": "U",
+                "id_protocol": int(os.environ.get("DEFAULT_PROTOCOL", 0)),
+                "transport_layer": os.environ.get("DEFAULT_TRANSPORT_LAYER", "T"),
                 "last_access": datetime.datetime.utcnow(),
             },
         )
         return config
+
+    @staticmethod
+    def save_data_to_db(headers, body):
+        console.print("Saving data to database ...", style="info", end=" ")
+        new_entry = Data.create()
+        custom_epoch = DatabaseManager.get_last_log().custom_epoch
+        id_device, mac, transport_layer, id_protocol, message_length = headers
+        val, batt_level, raw_timestamp = body[:3]
+        raw_timestamp += custom_epoch.timestamp() * 1000
+
+        timestamp = milis_to_utc_timestamp(raw_timestamp)
+
+        new_entry.id_device = id_device
+        new_entry.mac = "".join(format(x, "02x") for x in mac)
+        new_entry.transport_layer = transport_layer
+        new_entry.id_protocol = id_protocol
+        new_entry.message_length = message_length
+        new_entry.val = val
+        new_entry.batt_level = batt_level
+
+        new_entry.timestamp = timestamp
+
+        if id_protocol >= 1:
+            temp, press, hum, Co = body[3 : 3 + 4]
+            new_entry.temp = temp
+            new_entry.press = press
+            new_entry.hum = hum
+            new_entry.Co = Co
+            if id_protocol == 2 or id_protocol == 3:
+                RMS = body[7]
+                new_entry.RMS = RMS
+                if id_protocol == 3:
+                    AMP_X, FREQ_X, AMP_Y, FREQ_Y, AMP_Z, FREQ_Z = body[8:14]
+                    new_entry.AMP_X = AMP_X
+                    new_entry.FREQ_X = FREQ_X
+                    new_entry.AMP_Y = AMP_Y
+                    new_entry.FREQ_Y = FREQ_Y
+                    new_entry.AMP_Z = AMP_Z
+                    new_entry.FREQ_Z = FREQ_Z
+            else:
+                ACC_X, ACC_Y, ACC_Z = body[7:]
+                new_entry.ACC_X = ACC_X
+                new_entry.ACC_Y = ACC_Y
+                new_entry.ACC_Z = ACC_Z
+        new_entry.save()
+        console.print("Data saved to database", style="important")
+        dif = diff_to_now_utc_timestamp(raw_timestamp)
+        console.print(f"\nLatency: {dif:.5f}\n\n", style="important")
+        dif_in_miliseconds = int(dif * 1000)
+        Loss.get_or_create(data=new_entry, bytes_lost=0, latency=dif_in_miliseconds)

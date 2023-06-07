@@ -29,7 +29,7 @@ idf)
     if [ "$2" = "menuconfig" ]; then
         if [ ! -f ./sdkconfig ]; then
             echo "sdkconfig not found, generating..."
-            python3 ./generate_kconfig.py
+            python3 ../generate_kconfig.py
         fi
         idf.py menuconfig
 

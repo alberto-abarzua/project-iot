@@ -2,6 +2,7 @@ import struct
 from struct import unpack
 
 from utils.exceptions import LossException
+from utils.prints import console
 
 
 class PacketParser:
@@ -42,3 +43,10 @@ class PacketParser:
                 raise LossException(required_size - len(byte_message))
             else:
                 raise LossException(12)
+
+    def pack_config(self, config):
+        protocol_id = int(config.id_protocol)
+        transport_layer = ord(config.transport_layer)
+        msg = b"con"
+        msg += struct.pack("<bb", transport_layer,protocol_id )
+        return msg

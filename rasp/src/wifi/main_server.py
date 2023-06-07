@@ -1,23 +1,22 @@
-from utils.models import DatabaseManager
-from wifi.servers import handshake_server, run_server_on_thread, server_tcp, server_udp
+from utils.general import run_server_on_thread
+from wifi.servers import HandShakeServer, TcpServer, UdpServer
 
 
 class WifiServer:
-    def __init__(self):
-        self.DBManager = DatabaseManager()
+    def run(self, *args, **kwargs):
+        transport_layer = kwargs.get("transport_layer", None)
+        server_handshake = HandShakeServer()
+        handshake_server = run_server_on_thread(server_handshake.run)
+        if not handshake_server.is_alive():
+            handshake_server = run_server_on_thread(server_handshake.run)
+        print("Starting server")
 
-    def run(self):
-        thread = run_server_on_thread(handshake_server)
-        self.DBManager.db_init()
-        while True:
-            print("Starting server")
-            # current config
-            config = self.DBManager.get_default_config()
-            if config.transport_layer == "T":
-                server = server_tcp
-            else:
-                server = server_udp
-
-            thread = run_server_on_thread(server)
-            thread.join()
-            self.DBManager.db_close()
+        if transport_layer == "T":
+            server = TcpServer()
+        elif transport_layer == "U":
+            server = UdpServer()
+        else:
+            raise Exception("Invalid transport layer" + transport_layer)
+        server = run_server_on_thread(server.run)
+        server.join()
+        print("Server finished")

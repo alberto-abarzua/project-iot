@@ -14,6 +14,12 @@ config PORT_UDP
     help
         Environment variable: PORT_UDP
 
+config BLE_DISC_TIMEOUT_SEC
+    int "BLE_DISC_TIMEOUT_SEC"
+    default 60
+    help
+        Environment variable: BLE_DISC_TIMEOUT_SEC
+
 config PORT_HANDSHAKE
     int "PORT_HANDSHAKE"
     default 4199
@@ -22,7 +28,7 @@ config PORT_HANDSHAKE
 
 config IPV4_ADDR
     string "IPV4_ADDR"
-    default "server_ip_here"
+    default "192.168.0.1"
     help
         Environment variable: IPV4_ADDR
 

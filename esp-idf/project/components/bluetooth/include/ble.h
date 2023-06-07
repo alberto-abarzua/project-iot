@@ -16,11 +16,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
+#include "esp_sleep.h"
 #include "sdkconfig.h"
 #include "utils.h"
 
-
-
-void main_ble(void);
+#define BLE_DISC_TIMEOUT_SEC CONFIG_BLE_DISC_TIMEOUT_SEC
+void main_ble(char mode);
 
 #endif  // ble_h

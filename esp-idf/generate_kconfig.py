@@ -1,5 +1,7 @@
 import os
-
+from pathlib import Path
+# current path
+CUR_PATH = Path(__file__).parent.absolute()
 
 def type_to_kconfig_type(val):
     t = type(val)
@@ -53,7 +55,7 @@ config {}
             kconfig_content.append(env_variable_template.format(
                 key, type_to_kconfig_type(value), key, wrap(value), key))
 
-    proj_build_file = "/workspace/main/Kconfig.projbuild"
+    proj_build_file = os.path.join(CUR_PATH, "project","main", "Kconfig.projbuild")
     if os.path.exists(proj_build_file):
         os.remove(proj_build_file)
     with open(proj_build_file, "w") as f:
