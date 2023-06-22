@@ -1,249 +1,258 @@
 import datetime
 import os
 import socket
-
+import time
 from utils.exceptions import LossException
 from utils.models import DatabaseManager, Logs, Loss
 from utils.packet_parser import PacketParser
+from utils.prints import console
 
-TIMEOUT_TOLERANCE = 10
+from utils.general import diff_to_now_utc_timestamp, now_utc_timestamp
+import errno
 
 
-class HandShakeServer:
-    def start_handshake(self):
-        success = False
-        SESP_PORT_HANDSHAKE = os.environ.get("SESP_PORT_HANDSHAKE")
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind(("0.0.0.0", int(SESP_PORT_HANDSHAKE)))
-        server_socket.listen(5)
 
-        client_socket, _ = server_socket.accept()
-        data = client_socket.recv(1024)
+class ComunicationCore:
 
-        if b"hb" in data:
-            id_device = data[3:5]
-            custom_epoch = data[5 : 5 + 8]
-            # convert to int
-            id_device = int.from_bytes(id_device, byteorder="little")
-            custom_epoch_millis = int.from_bytes(custom_epoch, byteorder="little")
-            print(
-                "Handshake received from device",
-                id_device,
-                "custom epoch",
-                custom_epoch_millis,
+    def __init__(self, server):
+        self.server = server
+        self.socket = None
+        self.timeout = 6
+        if server.config.transport_layer == "T" or server.config.transport_layer == "D":
+            self.timeout = server.config.discontinuous_time*60
+    
+
+
+    @property
+    def addr(self):
+        return ("0.0.0.0", int(self.port))
+
+    def send(self, data):
+        raise NotImplementedError
+
+    def recv(self):
+        raise NotImplementedError
+
+    def close(self):
+        raise NotImplementedError
+
+    def start(self):
+        raise NotImplementedError
+
+
+class TcpComunicationCore(ComunicationCore):
+
+    def __init__(self, server):
+        super().__init__(server)
+        self.con_socket = None
+        self.port =  self.server.config.tcp_port
+
+
+    def start(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.addr)
+        self.socket.listen(5)
+        console.print(f"Waiting for connection on port {self.port}", style="info")
+        while True:
+            try:
+                self.con_socket, client_address = self.socket.accept()
+                self.con_socket.settimeout(self.timeout)
+                console.print(f"Connection from: {client_address}", style="info")
+                return True
+            except TimeoutError:
+                console.print("Waiting for connection ...", style="info")
+
+    def send(self, data):
+        self.con_socket.send(data)
+
+    def recv(self, num_bytes):
+        max_chunk_size = 1024
+        data = b""
+        while len(data) < num_bytes:
+            chunk_size = min(max_chunk_size, num_bytes - len(data))
+            try:
+                chunk = self.con_socket.recv(chunk_size)
+            except TimeoutError:
+                console.print("Timeout error, packets lost ...", style="error")
+                raise LossException(num_bytes - len(data))
+            if not chunk:
+                break
+            data += chunk
+        return data
+
+    def close(self):
+        try:
+            if self.con_socket.fileno() != -1:  # Checking if the socket is already closed
+                self.con_socket.shutdown(socket.SHUT_RDWR)
+                self.con_socket.close()
+            if self.socket.fileno() != -1:
+                self.socket.shutdown(socket.SHUT_RDWR)
+                self.socket.close()
+            console.print("Connection closed", style="info")
+        except OSError as e:
+            if e.errno != errno.ENOTCONN:  # Ignore 'Transport endpoint is not connected' errors, as they mean the connection is already closed
+                raise  # Reraise other errors
+        return True
+
+
+class UdpComunicationCore(ComunicationCore):
+
+    def __init__(self, server):
+        super().__init__(server)
+        self.socket = None
+        self.client_addr = None
+        self.port =  self.server.config.udp_port
+
+
+    def start(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.addr)
+        self.socket.settimeout(self.timeout)
+        return True
+
+    def send(self, data):
+        if self.client_addr:
+            console.print(f"Sending data to {self.client_addr}", style="info")
+            self.socket.sendto(data, self.client_addr)
+        else:
+            raise Exception("No client address")
+
+    def recv(self, num_bytes):
+        max_chunk_size = 1024
+        data = b""
+        while len(data) < num_bytes:
+            console.log(f"Waiting for {num_bytes - len(data)} bytes", style="light_info")
+            chunk_size = min(max_chunk_size, num_bytes - len(data))
+            try:
+                chunk, self.client_addr = self.socket.recvfrom(chunk_size)
+            except TimeoutError:
+                console.print("Timeout error, packets lost ...", style="error")
+                raise LossException(num_bytes - len(data))
+            if not chunk:
+                break
+            data += chunk
+        return data
+
+    def close(self):
+        self.socket.shutdown(socket.SHUT_RDWR)
+        self.socket.close()
+        console.print("Connection closed", style="info")
+        return True
+
+
+class WifiServerCore:
+
+    def __init__(self):
+
+        self.config = DatabaseManager.get_default_config()
+
+        self.transport_layer = self.config.transport_layer
+        self.protocol_id = self.config.protocol_id
+        self.parser = PacketParser()
+        self.tries = 1
+        self.init_timestamp = datetime.datetime.utcnow()
+        self.init_timestamp = self.init_timestamp.replace(
+            tzinfo=datetime.timezone.utc
+        ).timestamp()
+
+        if self.transport_layer == "T":
+            self.server = TcpComunicationCore(self)
+
+        elif self.transport_layer == "U":
+            self.server = UdpComunicationCore(self)
+
+    def read_data(self):
+        console.log("Waiting for data ...", style="info")
+        try:
+            data_headers = self.server.recv(12)
+            headers = self.parser.parse_headers(data_headers)
+
+            _, _, _, protocol_id, message_length = headers
+
+            body = self.parser.parse_body(
+                self.server.recv(message_length), protocol_id
             )
+            DatabaseManager.save_data_to_db(headers, body)
+            console.print("Data saved to db", style="info")
+        except LossException as e:
+            console.print("Loss exception!!!!", style="error")
+            bytes_lost = e.bytes_lost
+            Loss.create(
+                data=None,
+                bytes_lost=bytes_lost,
+                latency=0,
+            ).save()
+            self.server.close()
+            exit(1)
+        except Exception as e:
+            console.print("Error", style="error")
+            console.print(e, style="error")
+            self.server.close()
+            exit(1)
 
-            seconds, milliseconds = divmod(custom_epoch_millis, 1000)
-            custom_epoch = datetime.datetime.utcfromtimestamp(seconds).replace(
-                tzinfo=datetime.timezone.utc
-            )
-            custom_epoch = custom_epoch.replace(microsecond=milliseconds * 1000)
-            # When not using sntp:
-            print("custom_epcho, time", custom_epoch.timestamp())
-            custom_epoch = datetime.datetime.utcnow().timestamp() - custom_epoch.timestamp()
-            print("debug", custom_epoch, "utcnow", datetime.datetime.utcnow())
 
-            config = DatabaseManager.get_default_config()
-            config.last_access = datetime.datetime.utcnow()
-            config.save()
-            to_send_text = config.transport_layer + str(config.id_protocol)
-            to_send_bytes = to_send_text.encode("utf-8")
-            print("Sending config ...", to_send_bytes, len(to_send_bytes))
-            client_socket.send(to_send_bytes)
+    def handshake(self):
 
-        # wait for ok bro
-        data = client_socket.recv(1024)
-        if data == b"ob":
-            print("Handshake successful!")
-            # log
-            print("Saving Log to db")
+        first_headers = self.server.recv(12)
+        console.print(f"Handshake_headers: {first_headers} of len {len(first_headers)}", style="info")
+        id_device,_,transport_layer,protocol_id,message_length = self.parser.parse_headers(first_headers)
+        body = self.server.recv(message_length)
+        body = self.parser.parse_body(body, protocol_id)
+
+        console.print(f"Handshake received from device {id_device} using {transport_layer} - Protocol {protocol_id} ", style="info")
+        
+
+        dif = diff_to_now_utc_timestamp(body[1])
+        now = now_utc_timestamp()
+
+        if self.init_timestamp is not None:
+            time_to_connect = now - self.init_timestamp
+            tries = self.tries
+
             log = Logs.create(
-                timestamp=datetime.datetime.utcnow(),
+                timestamp=now,
                 id_device=id_device,
-                transport_layer=DatabaseManager.get_default_config().transport_layer,
-                id_protocol=DatabaseManager.get_default_config().id_protocol,
-                custom_epoch=custom_epoch,
+                custom_epoch=dif,
+                time_to_connect=time_to_connect,
+                protocol_id=protocol_id,
+                transport_layer=transport_layer,
+                tries=tries,
+                ble_state_machine="wifi",
             )
             log.save()
-            success = True
-        client_socket.shutdown(socket.SHUT_RDWR)
-        server_socket.shutdown(socket.SHUT_RDWR)
-        client_socket.close()
-        server_socket.close()
-        return success
+            console.print("Log saved!", style="info")
+            self.init_timestamp = None
 
+        current_config = DatabaseManager.get_default_config()
+
+        changed = current_config.was_changed(self.transport_layer,self.protocol_id)
+        if changed:
+            console.print("Config was modified!", style="error")
+            self.server.close()
+            exit(1)
+        console.print("Sending config to device", style="info")
+        
+        self.server.send(self.parser.pack_config(current_config))
+        
     def run(self):
+        self.start_time = datetime.datetime.utcnow()
+        console.print(f"Starting server using {self.transport_layer} - Protocol {self.protocol_id} ", style="info")
+        time.sleep(1)
+        self.server.start()
+        console.print("Server started", style="info")
+        if self.transport_layer == "U":
+            self.server.socket.settimeout(None)
         while True:
-            self.start_handshake()
+            self.handshake()
+            if self.transport_layer == "U":
+                self.server.socket.settimeout(self.server.timeout*2)
 
+            time.sleep(0.5)
 
-# *****************************************************************************
-# *                                                                           *
-# *  ***********************    TCP    ***************************  *
-# *                                                                           *
-# *  *************** <><><><><><><><><><><><><><><><><><><><> *************  *
-# *                                                                           *
-# *****************************************************************************
-
-
-class TcpServer:
-    def recv_in_chunks(self, socket, total, chunk_size=1024):
-        data = b""
-        while len(data) < total:
-            try:
-                chunk = socket.recv(chunk_size)
-            except TimeoutError:
-                print("Timeout error, packets lost ...")
-                raise LossException(total - len(data))
-            if not chunk:
-                break
-            data += chunk
-        return data
-
-    def recv_headers(self, socket):
-        try:
-            headers = socket.recv(12)
-            return headers
-        except TimeoutError:
-            print("Timeout error, packets lost ...")
-            raise LossException(12)
-
-    def run(self):
-        start_time = datetime.datetime.utcnow()
-        # copy of configs
-        start_config = DatabaseManager.get_default_config()
-        start_layer = start_config.transport_layer
-        start_protocol = start_config.id_protocol
-
-        print("Starting TCP server", start_config)
-        # config as dict
-        SESP_PORT_TCP = os.environ.get("SESP_PORT_TCP")
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind(("0.0.0.0", int(SESP_PORT_TCP)))
-        server_socket.listen(5)
-        print("Server is listening on port: ", SESP_PORT_TCP)
-        while True:
-            client_socket, client_address = server_socket.accept()
-            client_socket.settimeout(
-                (int(os.environ.get("SESP_TCP_TIMEOUT")) // 1000) + TIMEOUT_TOLERANCE
-            )
-            print("Connection from: ", client_address)
-            parser = PacketParser()
-            while True:
-                cur_config = DatabaseManager.get_default_config()
-                recently_accesed = cur_config.was_recently_accessed(start_time)
-                changed = cur_config.was_changed(start_layer, start_protocol)
-                if recently_accesed or changed:
-                    print("recently_accesed", recently_accesed, "changed", changed)
-                    client_socket.shutdown(socket.SHUT_RDWR)
-                    server_socket.shutdown(socket.SHUT_RDWR)
-                    client_socket.close()
-                    server_socket.close()
-                    print("Config was recently accessed")
-                    exit(1)
-                try:
-                    data_headers = self.recv_headers(client_socket)
-                    headers = parser.parse_headers(data_headers)
-                    _, _, _, id_protocol, message_length = headers
-                    body = parser.parse_body(
-                        self.recv_in_chunks(client_socket, message_length), id_protocol
-                    )
-                    DatabaseManager.save_data_to_db(headers, body)
-                    print("Data saved to db")
-                except LossException as e:
-                    print("Loss exception!!!!")
-                    bytes_lost = e.bytes_lost
-                    Loss.create(
-                        data=None,
-                        bytes_lost=bytes_lost,
-                        latency=0,
-                    ).save()
-
-                    client_socket.shutdown(socket.SHUT_RDWR)
-                    server_socket.shutdown(socket.SHUT_RDWR)
-                    client_socket.close()
-                    server_socket.close()
-                    exit(1)
-
-
-# *****************************************************************************
-# *                                                                           *
-# *  ***********************    UDP    ***************************  *
-# *                                                                           *
-# *  *************** <><><><><><><><><><><><><><><><><><><><> *************  *
-# *                                                                           *
-# *****************************************************************************
-
-
-class UdpServer:
-    def recv_headers(self, socket):
-        try:
-            headers, _ = socket.recvfrom(12)
-        except TimeoutError:
-            print("Timeout error, packets lost ...")
-            raise LossException(12)
-        return headers
-
-    def recv_in_chunks(self, socket, total, chunk_size=1024):
-        data = b""
-        while len(data) < total:
-            chunk_size = min(chunk_size, total - len(data))
-            try:
-                chunk, _ = socket.recvfrom(chunk_size)
-            except TimeoutError:
-                print("Timeout error, packets lost ...")
-                raise LossException(total - len(data))
-            if not chunk:
-                break
-            data += chunk
-        return data
-
-    def run(self):
-        start_time = datetime.datetime.utcnow()
-        # copy of config
-        start_config = DatabaseManager.get_default_config()
-        start_layer = start_config.transport_layer
-        start_protocol = start_config.id_protocol
-
-        print("Starting udp server", start_config)
-        # config as dict
-        SESP_PORT_UDP = os.environ.get("SESP_PORT_UDP")
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind(("0.0.0.0", int(SESP_PORT_UDP)))
-        server_socket.settimeout(
-            int(os.environ.get("SESP_UDP_TIMEOUT")) // 1000 + TIMEOUT_TOLERANCE
-        )
-        print("Server is listening on port: ", SESP_PORT_UDP)
-        while True:
-            parser = PacketParser()
-            while True:
-                cur_config = DatabaseManager.get_default_config()
-                recently_accesed = cur_config.was_recently_accessed(start_time)
-                changed = cur_config.was_changed(start_layer, start_protocol)
-                if recently_accesed or changed:
-                    print("recently_accesed", recently_accesed, "changed", changed)
-                    print("Config was recently accessed")
-                    exit(1)
-                try:
-                    data_headers = self.recv_headers(server_socket)
-                    headers = parser.parse_headers(data_headers)
-                    _, _, _, id_protocol, message_length = headers
-                    body = parser.parse_body(
-                        self.recv_in_chunks(server_socket, message_length), id_protocol
-                    )
-                    DatabaseManager.save_data_to_db(headers, body)
-                    print("Data saved to db")
-                except LossException as e:
-                    print("Loss exception!!!!")
-                    bytes_lost = e.bytes_lost
-                    Loss.create(
-                        data=None,
-                        bytes_lost=bytes_lost,
-                        latency=0,
-                    ).save()
-                    server_socket.shutdown(socket.SHUT_RDWR)
-                    server_socket.close()
-                    exit(1)
+            self.read_data()
+            if self.transport_layer == "T":
+                self.server.close()
+                exit(1)
+           

@@ -159,10 +159,10 @@ class BleHandshake:
 
         parser = PacketParser()
         headers = parser.parse_headers(data_headers)
-        id_device, _, transport_layer, id_protocol, _ = headers
-        body = parser.parse_body(data_body, id_protocol)
+        id_device, _, transport_layer, protocol_id, _ = headers
+        body = parser.parse_body(data_body, protocol_id)
 
-        dif = diff_to_now_utc_timestamp(body[2])
+        dif = diff_to_now_utc_timestamp(body[1])
         now = now_utc_timestamp()
 
         if self.context.init_timestamp is not None:
@@ -178,7 +178,7 @@ class BleHandshake:
                 id_device=id_device,
                 custom_epoch=dif,
                 time_to_connect=time_to_connect,
-                id_protocol=id_protocol,
+                protocol_id=protocol_id,
                 transport_layer=transport_layer,
                 tries=tries,
                 ble_state_machine=ble_state_machine,
@@ -207,8 +207,8 @@ class ReadData:
         data_body = data[12:]
         parser = PacketParser()
         headers = parser.parse_headers(data_headers)
-        _, _, _, id_protocol, _ = headers
-        body = parser.parse_body(data_body, id_protocol)
+        _, _, _, protocol_id, _ = headers
+        body = parser.parse_body(data_body, protocol_id)
         DatabaseManager.save_data_to_db(headers, body)
 
 

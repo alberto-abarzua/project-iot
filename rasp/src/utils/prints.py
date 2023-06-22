@@ -7,6 +7,7 @@ custom_theme = Theme(
         "important": "bold green",
         "warning": "magenta",
         "danger": "bold red",
+        "error" : "bold red",
         "light_info": "dim white",
         "note": "bold blue",
         "setup": "bold dodger_blue1",
