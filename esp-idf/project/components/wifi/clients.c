@@ -28,6 +28,8 @@ int send_chunks_tcp(int sock, const char *buf, int size, int total) {
             sent += ret;
         }
         bytes_sent += sent;
+        //vtaskdelay
+        ESP_LOGI(TAG, "Sent %d bytes of %d", bytes_sent, total);
     }
 
     return bytes_sent;  // Total bytes sent
@@ -82,6 +84,7 @@ void tcp_client(int protocol_id) {
 
     // Create socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+
     if (sock < 0) {
         ESP_LOGE(TAG, "Unable to create socket: errno %s\n", strerror(errno));
         return;

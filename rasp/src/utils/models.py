@@ -145,20 +145,20 @@ class DatabaseManager:
         config, created = Config.get_or_create(
             config_name="default",
             defaults={
-                "protocol_id": 5,
-                "transport_layer": "T",
+                "protocol_id": os.environ.get("DEFAULT_PROTOCOL_ID"),
+                "transport_layer": os.environ.get("DEFAULT_TRANSPORT_LAYER"),
                 "last_access": datetime.datetime.utcnow(),
                 "status": 0,
                 "bmi270_sampling": 100,
                 "bmi270_sensibility": 0,
                 "bmi270_gyro_sensibility": 0,
                 "bme688_sampling": 100,
-                "discontinuous_time": 1,
+                "discontinuous_time": os.environ.get("DISCONTINUOUS_TIMEOUT", 1),
                 "tcp_port": 4200,
                 "udp_port": 4201,
-                "host_ip_addr": "192.168.0.6",
-                "ssid": "PALVI",
-                "password": "Palvi.1400",
+                "host_ip_addr": os.environ.get("CONTROLLER_SERVER_HOST"),
+                "ssid": os.environ.get("WIFI_SSID"),
+                "password": os.environ.get("WIFI_PASSWORD"),
 
             },
         )
@@ -202,7 +202,7 @@ class DatabaseManager:
                     new_entry.FREQ_Y = FREQ_Y
                     new_entry.AMP_Z = AMP_Z
                     new_entry.FREQ_Z = FREQ_Z
-            else:
+            elif protocol_id == 5:
                 ACC_X, ACC_Y, ACC_Z,RGYR_X, RGYR_Y, RGYR_Z = body[7:]
                 new_entry.ACC_X = ACC_X
                 new_entry.ACC_Y = ACC_Y

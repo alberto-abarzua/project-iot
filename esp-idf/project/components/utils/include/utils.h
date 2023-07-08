@@ -20,8 +20,6 @@
 #define MAX_PASSWORD_LEN 64
 
 
-#define DEFAULT_TRANS_LAYER 'T'
-#define DEFAULT_PROTOCOL_ID 5
 
 #include <sys/time.h>
 #pragma pack(push, 1)

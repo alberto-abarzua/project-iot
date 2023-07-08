@@ -71,6 +71,7 @@ class TcpComunicationCore(ComunicationCore):
         data = b""
         while len(data) < num_bytes:
             chunk_size = min(max_chunk_size, num_bytes - len(data))
+            console.print(f"current_chunk_size: {chunk_size}", style="info")
             try:
                 chunk = self.con_socket.recv(chunk_size)
             except TimeoutError:
@@ -78,21 +79,20 @@ class TcpComunicationCore(ComunicationCore):
                 raise LossException(num_bytes - len(data))
             if not chunk:
                 break
-            data += chunk
+            data += chunk            
+            console.print(f"Received {len(data)} bytes out of {num_bytes}, bytes left {num_bytes - len(data)}", style="info")
         return data
 
     def close(self):
-        try:
-            if self.con_socket.fileno() != -1:  # Checking if the socket is already closed
-                self.con_socket.shutdown(socket.SHUT_RDWR)
-                self.con_socket.close()
-            if self.socket.fileno() != -1:
-                self.socket.shutdown(socket.SHUT_RDWR)
-                self.socket.close()
-            console.print("Connection closed", style="info")
-        except OSError as e:
-            if e.errno != errno.ENOTCONN:  # Ignore 'Transport endpoint is not connected' errors, as they mean the connection is already closed
-                raise  # Reraise other errors
+        for sock in [self.con_socket, self.socket]:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
+                console.print("Socket closed", style="info")
+            except OSError as e:
+                console.print(f"Error closing socket: {e}", style="error")
+                if e.errno not in {errno.ENOTCONN, errno.EBADF}:  # Ignore errors that indicate the socket is already closed
+                    raise  # Reraaise other errors
         return True
 
 
@@ -127,6 +127,7 @@ class UdpComunicationCore(ComunicationCore):
             chunk_size = min(max_chunk_size, num_bytes - len(data))
             try:
                 chunk, self.client_addr = self.socket.recvfrom(chunk_size)
+                time.sleep(0.01)
             except TimeoutError:
                 console.print("Timeout error, packets lost ...", style="error")
                 raise LossException(num_bytes - len(data))
@@ -168,16 +169,16 @@ class WifiServerCore:
         try:
             data_headers = self.server.recv(12)
             headers = self.parser.parse_headers(data_headers)
-
             _, _, _, protocol_id, message_length = headers
-
+            body_data = self.server.recv(message_length)
+            
             body = self.parser.parse_body(
-                self.server.recv(message_length), protocol_id
-            )
+                body_data, protocol_id)
+
             DatabaseManager.save_data_to_db(headers, body)
             console.print("Data saved to db", style="info")
         except LossException as e:
-            console.print("Loss exception!!!!", style="error")
+            console.print(f"Loss exception!!!! {e}", style="error")
             bytes_lost = e.bytes_lost
             Loss.create(
                 data=None,
@@ -186,8 +187,8 @@ class WifiServerCore:
             ).save()
             self.server.close()
             exit(1)
-        except Exception as e:
-            console.print("Error", style="error")
+        except OSError as e:
+            console.print("Error during connection!", style="error")
             console.print(e, style="error")
             self.server.close()
             exit(1)
@@ -228,13 +229,14 @@ class WifiServerCore:
         current_config = DatabaseManager.get_default_config()
 
         changed = current_config.was_changed(self.transport_layer,self.protocol_id)
+        self.server.send(self.parser.pack_config(current_config)) 
+
         if changed:
             console.print("Config was modified!", style="error")
             self.server.close()
             exit(1)
         console.print("Sending config to device", style="info")
         
-        self.server.send(self.parser.pack_config(current_config))
         
     def run(self):
         self.start_time = datetime.datetime.utcnow()
@@ -247,6 +249,7 @@ class WifiServerCore:
         while True:
             self.handshake()
             if self.transport_layer == "U":
+                time.sleep(1)
                 self.server.socket.settimeout(self.server.timeout*2)
 
             time.sleep(0.5)

@@ -21,7 +21,8 @@ from utils.prints import console
 # *                                                                           *
 # *****************************************************************************
 class BleCore:
-    def __init__():
+    def __init__(self):
+        self.disconnected = False
         pass
 
     def char_write(self, data):
@@ -58,12 +59,14 @@ class PygattCore(BleCore):
             self.connected = True
 
     def disconnect(self):
-        if self.client is not None:
-            self.client.disconnect()
-            # unsuscribe
-            self.notify_thread.join()
-            self.client = None
-            self.connected = False
+        if not self.disconnect:
+            if self.client is not None:
+                self.client.disconnect()
+                # unsuscribe
+                self.notify_thread.join()
+                self.client = None
+                self.connected = False
+                self.disconnected = True
 
     def char_read(self):
         return self.client.char_read(self.characteristic_uuid, timeout=3)
@@ -95,7 +98,10 @@ class BleakCore(BleCore):
         asyncio.set_event_loop(self.loop)
 
     def connect(self):
-        self.loop.run_until_complete(self._connect())
+        try:
+            self.loop.run_until_complete(self._connect())
+        except Exception as e:
+            console.print(f"An error occurred while connecting: {e}", style="danger")
 
     async def _connect(self):
         self.client = BleakClient(self.device_mac)
@@ -103,9 +109,19 @@ class BleakCore(BleCore):
         console.print("Connected!", style="info")
 
     def disconnect(self):
-        console.print("Disconnecting...", style="danger")
-        self.loop.run_until_complete(self._disconnect())
-        self.loop.close()
+        if not self.disconnect:
+            console.print("Disconnecting...", style="danger")
+            try:
+                self.loop.run_until_complete(self._disconnect())
+            except Exception as e:
+                console.print(f"An error occurred while disconnecting: {e}", style="danger")
+            else:
+                console.print("Successfully disconnected", style="info")
+            finally:
+                time.sleep(5)
+                if not self.loop.is_closed():
+                    self.loop.close()
+                self.disconnected = True
 
     async def _disconnect(self):
         if self.client is not None:
@@ -115,21 +131,33 @@ class BleakCore(BleCore):
             self.connected = False
 
     def char_read(self):
-        return self.loop.run_until_complete(self._char_read())
+        if self.client is not None and self.connected:
+            try:
+                return self.loop.run_until_complete(self._char_read())
+            except Exception as e:
+                console.print(f"An error occurred while reading: {e}", style="danger")
 
     async def _char_read(self):
         if self.client is not None and self.connected:
             return await self.client.read_gatt_char(self.characteristic_uuid)
 
     def char_write(self, data):
-        self.loop.run_until_complete(self._char_write(data))
+        if self.client is not None and self.connected:
+
+            try:
+                self.loop.run_until_complete(self._char_write(data))
+            except Exception as e:
+                console.print(f"An error occurred while writing: {e}", style="danger")
 
     async def _char_write(self, data):
         if self.client is not None and self.connected:
             await self.client.write_gatt_char(self.characteristic_uuid, data)
 
     def subscribe(self, notify_function):
-        self.loop.run_until_complete(self._subscribe(notify_function))
+        try:
+            self.loop.run_until_complete(self._subscribe(notify_function))
+        except Exception as e:
+            console.print(f"An error occurred while subscribing: {e}", style="danger")
 
     async def _subscribe(self, notify_function):
         if self.client is not None and self.connected:
@@ -168,7 +196,6 @@ class BleHandshake:
         if self.context.init_timestamp is not None:
             time_to_connect = now - self.context.init_timestamp
             tries = self.context.tries
-
             ble_state_machine = "not using states"
             if os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE":
                 ble_state_machine = "using states"
@@ -193,6 +220,11 @@ class BleHandshake:
         parser = PacketParser()
         conf = DatabaseManager.get_default_config()
         self.context.ble_core.char_write(parser.pack_config(conf))
+        changed = conf.was_changed(self.context.transport_layer,self.context.protocol_id)
+        if changed:
+            console.print("Config was modified!", style="error")
+            self.context.ble_core.disconnect()
+            exit(1)
         self.set_log()
         console.print("Handshake done!", style="info")
 
@@ -274,7 +306,6 @@ class ConnectedState(DeviceState):
         context.state = self
         self.ble_handshake = BleHandshake(context)
         self.read_data = ReadData(context)
-
         context.ble_core.subscribe(self.notify_callback)
         while True:
             while True:
@@ -283,14 +314,14 @@ class ConnectedState(DeviceState):
                     time.sleep(2)
                 if self.data_available:
                     break
-
             if self.data_available:
+                current_config = DatabaseManager.get_default_config()       
                 self.ble_handshake.run()
                 self.read_data.run()
                 self.data_available = False
                 if context.transport_layer == "D":
                     context.ble_core.disconnect()
-                    time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))*0.9)
+                    time.sleep(current_config.discontinuous_time)
                     return
 
 
@@ -311,7 +342,9 @@ class StatefulBleManager:
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
-        self.transport_layer = transport_layer
+        current_config = DatabaseManager.get_default_config()
+        self.transport_layer = current_config.transport_layer
+        self.protocol_id = current_config.protocol_id
         self.device_mac = device_mac
         self.tries = 1
         self.init_timestamp = datetime.datetime.utcnow()
@@ -346,7 +379,9 @@ class StatelessBleManager:
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
-        self.transport_layer = transport_layer
+        current_config = DatabaseManager.get_default_config()
+        self.transport_layer = current_config.transport_layer
+        self.protocol_id = current_config.protocol_id
         self.device_mac = device_mac
         self.data_available = True
         self.tries = 1
@@ -385,12 +420,13 @@ class StatelessBleManager:
                             break
                     
                 if self.data_available:
+                    current_config = DatabaseManager.get_default_config()
                     self.ble_handshake.run()
                     self.read_data.run()
                     self.data_available = False
                     if self.transport_layer == "D":
                         self.ble_core.disconnect()
-                        time.sleep(int(os.environ.get("SESP_BLE_DISC_TIMEOUT_SEC", 4))*0.9)
+                        time.sleep(current_config.discontinuous_time)
                         return
             except Exception as e:
                 print(e)

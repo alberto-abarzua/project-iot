@@ -1,3 +1,4 @@
+#include "config.h"
 #include "utils.h"
 
 /* *****************************************************************************
@@ -120,10 +121,10 @@ void print_config(config_t config) {
     printf("Transport Layer: %c\n", config.trans_layer);
 }
 
-int check_diff_config(config_t *c1, config_t* c2) {
+int check_diff_config(config_t *c1, config_t *c2) {
     // TODO: check if there is a difference between the two configs, print the
     // values that differ
-    return 1; 
+    return 1;
 }
 
 esp_err_t set_nvs_config(config_t config) {
@@ -155,7 +156,7 @@ esp_err_t set_nvs_config(config_t config) {
     print_config(current_config);
     printf("New Config:\n");
     print_config(config);
-    check_diff_config(&current_config,&config);
+    check_diff_config(&current_config, &config);
     if (current_config.protocol_id != config.protocol_id ||
         current_config.status != config.status ||
         current_config.trans_layer != config.trans_layer
@@ -174,32 +175,29 @@ esp_err_t get_nvs_config(config_t *config) {
         printf("The value is not initialized yet!\n");
 
         config->protocol_id = DEFAULT_PROTOCOL_ID;
-        config->trans_layer = DEFAULT_TRANS_LAYER;
+        config->trans_layer = DEFAULT_TRANSPORT_LAYER;
 
         config->udp_port = CONFIG_PORT_UDP;
         config->tcp_port = CONFIG_PORT_TCP;
 
-        memcpy(config->host_ip_addr, CONFIG_IPV4_ADDR,
-               strlen(CONFIG_IPV4_ADDR));
-        //add null terminator
-        config->host_ip_addr[strlen(CONFIG_IPV4_ADDR)] = '\0';
+        memcpy(config->host_ip_addr, CONTROLLER_SERVER_HOST,
+               strlen(CONTROLLER_SERVER_HOST));
+        // add null terminator
+        config->host_ip_addr[strlen(CONTROLLER_SERVER_HOST)] = '\0';
 
-        memcpy(config->ssid, CONFIG_EXAMPLE_WIFI_SSID,
-               strlen(CONFIG_EXAMPLE_WIFI_SSID));
-        //add null terminator
-        config->ssid[strlen(CONFIG_EXAMPLE_WIFI_SSID)] = '\0';
-        memcpy(config->password, CONFIG_EXAMPLE_WIFI_PASSWORD,
-               strlen(CONFIG_EXAMPLE_WIFI_PASSWORD));
-        //add null terminator
-        config->password[strlen(CONFIG_EXAMPLE_WIFI_PASSWORD)] = '\0';
+        memcpy(config->ssid, WIFI_SSID, strlen(WIFI_SSID));
+        // add null terminator
+        config->ssid[strlen(WIFI_SSID)] = '\0';
+        memcpy(config->password, WIFI_PASSWORD, strlen(WIFI_PASSWORD));
+        // add null terminator
+        config->password[strlen(WIFI_PASSWORD)] = '\0';
 
-        config->discontinuous_time =1;
+        config->discontinuous_time = DISCONTINUOUS_TIMEOUT;
         config->bmi270_sampling = 1;
         config->bmi270_sensibility = 1;
         config->bmi270_gyro_sensibility = 1;
         config->bme688_sampling = 1;
         config->status = 1;
-            
 
     } else if (ret != ESP_OK) {
         printf("Error (%s) opening NVS handle!\n", esp_err_to_name(ret));
@@ -208,11 +206,7 @@ esp_err_t get_nvs_config(config_t *config) {
 
     size_t required_size = sizeof(config_t);
     ret = nvs_get_blob(my_handle, "config_key", config, &required_size);
-    if (ret == ESP_ERR_NVS_NOT_FOUND) {
-        printf("The value is not initialized yet!\n");
-        config->protocol_id = DEFAULT_PROTOCOL_ID;
-        config->trans_layer = DEFAULT_TRANS_LAYER;
-    } else if (ret != ESP_OK) {
+    if (ret != ESP_OK) {
         printf("Error (%s) reading!\n", esp_err_to_name(ret));
     }
 

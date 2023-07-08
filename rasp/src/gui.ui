@@ -1,0 +1,532 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>743</width>
+    <height>957</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <widget class="QTabWidget" name="Pestana_principal">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>741</width>
+     <height>951</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(255, 255, 255);</string>
+   </property>
+   <property name="currentIndex">
+    <number>0</number>
+   </property>
+   <widget class="QWidget" name="tab">
+    <attribute name="title">
+     <string>Config and Connection</string>
+    </attribute>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>10</y>
+       <width>651</width>
+       <height>261</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>Configurations</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_5">
+      <item row="0" column="0">
+       <widget class="QGroupBox" name="groupBox_2">
+        <property name="title">
+         <string>Sensor</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout">
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_20">
+           <property name="text">
+            <string>BME688 Sampling</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Acc Sampling</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QTextEdit" name="gyro_sens_text"/>
+         </item>
+         <item row="0" column="1">
+          <widget class="QTextEdit" name="acc_sampl_text"/>
+         </item>
+         <item row="4" column="1">
+          <widget class="QTextEdit" name="bme_sampling_text"/>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_27">
+           <property name="text">
+            <string>Discontinuos time</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_11">
+           <property name="text">
+            <string>Gyro Sensibility</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_9">
+           <property name="text">
+            <string>Acc Sensibility</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QTextEdit" name="disc_time_text"/>
+         </item>
+         <item row="2" column="1">
+          <widget class="QTextEdit" name="acc_sens_text"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QGroupBox" name="groupBox_3">
+        <property name="title">
+         <string>Network</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_3">
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>UDP Port</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_28">
+           <property name="text">
+            <string>Password</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="5">
+          <widget class="QTextEdit" name="host_ip_text">
+           <property name="inputMethodHints">
+            <set>Qt::ImhDigitsOnly</set>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_26">
+           <property name="text">
+            <string>SSID</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="5">
+          <widget class="QTextEdit" name="tcp_port_text">
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>47</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="5">
+          <widget class="QTextEdit" name="udp_port_text"/>
+         </item>
+         <item row="3" column="5">
+          <widget class="QTextEdit" name="text_ssid"/>
+         </item>
+         <item row="4" column="5">
+          <widget class="QTextEdit" name="password_text"/>
+         </item>
+         <item row="0" column="0" colspan="2">
+          <widget class="QLabel" name="label_8">
+           <property name="text">
+            <string> TCP Port</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0" colspan="3">
+          <widget class="QLabel" name="label_12">
+           <property name="text">
+            <string>Host IP Addr</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QGroupBox" name="groupBox_4">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>280</y>
+       <width>661</width>
+       <height>351</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>Connection</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_9">
+      <item row="11" column="1" colspan="2">
+       <widget class="QProgressBar" name="progress_bar">
+        <property name="value">
+         <number>24</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1" rowspan="2" colspan="2">
+       <widget class="QGroupBox" name="groupBox_6">
+        <property name="title">
+         <string>BLE</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_10">
+         <item row="0" column="0">
+          <widget class="QComboBox" name="esp_ble_select">
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QPushButton" name="start_ble_button">
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(5, 5, 203);
+color: rgb(255, 255, 255);</string>
+           </property>
+           <property name="text">
+            <string>Configure via BLE</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="label_29">
+        <property name="styleSheet">
+         <string notr="true">color: rgb(0, 0, 0);
+
+</string>
+        </property>
+        <property name="text">
+         <string>Transport Layer</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="label_30">
+        <property name="styleSheet">
+         <string notr="true">color: rgb(0, 0, 0);
+
+</string>
+        </property>
+        <property name="text">
+         <string>Protocol ID</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2">
+       <widget class="QComboBox" name="transport_layer_select">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(255, 255, 255);</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>TCP continuous</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>TCP discontinuous</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>UDP</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>BLE continuous </string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>BLE discontinuous</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <widget class="QComboBox" name="protocol_id_select">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(255, 255, 255);</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>1</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>2</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>3</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>4</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>5</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="10" column="1" colspan="2">
+       <widget class="QPushButton" name="disconnect_button">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(103, 8, 8);
+color: rgb(255, 255, 255);</string>
+        </property>
+        <property name="text">
+         <string>Disconnect</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="1" colspan="2">
+       <widget class="QGroupBox" name="groupBox_9">
+        <property name="title">
+         <string>WIFI</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_11">
+         <item row="0" column="0">
+          <widget class="QPushButton" name="start_wifi_server_button">
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(5, 5, 203);
+color: rgb(255, 255, 255);</string>
+           </property>
+           <property name="text">
+            <string>Start Wi-Fi Server</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="9" column="1">
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+    <widget class="QGroupBox" name="groupBox_10">
+     <property name="geometry">
+      <rect>
+       <x>40</x>
+       <y>640</y>
+       <width>651</width>
+       <height>251</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>Console</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_12">
+      <item row="0" column="0">
+       <widget class="QWidget" name="console_output" native="true"/>
+      </item>
+     </layout>
+    </widget>
+    <zorder>groupBox_10</zorder>
+    <zorder>groupBox_4</zorder>
+    <zorder>groupBox</zorder>
+   </widget>
+   <widget class="QWidget" name="tab_2">
+    <attribute name="title">
+     <string>Data</string>
+    </attribute>
+    <widget class="QGroupBox" name="groupBox_5">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>0</y>
+       <width>681</width>
+       <height>891</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>Data</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_4">
+      <item row="0" column="0">
+       <widget class="QComboBox" name="plot1_select">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(255, 255, 255);</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>Temperatura</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>humedad</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_x</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_y</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_z</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RMS</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QWidget" name="plot1" native="true"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QComboBox" name="plot2_select">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(255, 255, 255);</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>Temperatura</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>humedad</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_x</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_y</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_z</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RMS</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QWidget" name="plot2" native="true"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QComboBox" name="plot3_select">
+        <property name="styleSheet">
+         <string notr="true">background-color: rgb(255, 255, 255);</string>
+        </property>
+        <item>
+         <property name="text">
+          <string>Temperatura</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>humedad</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_x</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_y</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Acc_z</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>RMS</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QWidget" name="plot3" native="true"/>
+      </item>
+     </layout>
+     <zorder>plot1</zorder>
+     <zorder>plot1_select</zorder>
+     <zorder>plot2</zorder>
+     <zorder>plot3</zorder>
+     <zorder>plot3_select</zorder>
+     <zorder>plot2_select</zorder>
+    </widget>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

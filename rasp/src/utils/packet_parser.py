@@ -26,7 +26,7 @@ class PacketParser:
             2: "<bibibi",
             3: "<bibibii",
             4: "<bibibiiiiiiii",
-            5: "<bibibi2000s2000s2000s2000s2000s2000s",
+            5: "<bibibi8000s8000s8000s8000s8000s8000s",
         }
         fmt = self.format_strings.get(int(protocol_id))
         if fmt:

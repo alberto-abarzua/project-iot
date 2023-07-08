@@ -1,11 +1,11 @@
 from ble.utils import BleManager
 from utils.general import run_server_on_thread
-
+import os
 
 class BleClient:
-    DEVICE_NAME = "ESP_GATTS_DEMO"
-    DEVICE_MAC = "AC:67:B2:38:41:D2"
-    CHARACTERISTIC_UUID = "0000ff01-0000-1000-8000-00805F9B34FB"
+    DEVICE_NAME = os.environ.get("BLE_DEVICE_NAME")
+    DEVICE_MAC = os.environ.get("BLE_MAC_ADDRESS")
+    CHARACTERISTIC_UUID = os.environ.get("BLE_CHARACTERISTIC_UUID")
 
     def run(self, *args, **kwargs):
         transport_layer = kwargs.get("transport_layer")
