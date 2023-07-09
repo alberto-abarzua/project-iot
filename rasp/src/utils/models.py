@@ -111,6 +111,25 @@ class Config(Model):
     class Meta:
         database = db
 
+    def __str__(self):
+        return (
+            f"Config: {self.config_name}\n"
+            f"Protocol: {self.protocol_id}\n"
+            f"Transport Layer: {self.transport_layer}\n"
+            f"Last Access: {self.last_access}\n"
+            f"Status: {self.status}\n"
+            f"BMI270 Sampling: {self.bmi270_sampling}\n"
+            f"BMI270 Sensibility: {self.bmi270_sensibility}\n"
+            f"BMI270 Gyro Sensibility: {self.bmi270_gyro_sensibility}\n"
+            f"BME688 Sampling: {self.bme688_sampling}\n"
+            f"Discontinuous Time: {self.discontinuous_time}\n"
+            f"TCP Port: {self.tcp_port}\n"
+            f"UDP Port: {self.udp_port}\n"
+            f"Host IP Addr: {self.host_ip_addr}\n"
+            f"SSID: {self.ssid}\n"
+            f"Password: {self.password}\n"
+        )
+
 
 class DatabaseManager:
     MODELS = [Data, Logs, Config, Loss]
@@ -142,7 +161,7 @@ class DatabaseManager:
 
     @staticmethod
     def get_default_config():
-        config, created = Config.get_or_create(
+        config, _ = Config.get_or_create(
             config_name="default",
             defaults={
                 "protocol_id": os.environ.get("DEFAULT_PROTOCOL_ID"),
@@ -154,8 +173,8 @@ class DatabaseManager:
                 "bmi270_gyro_sensibility": 0,
                 "bme688_sampling": 100,
                 "discontinuous_time": os.environ.get("DISCONTINUOUS_TIMEOUT", 1),
-                "tcp_port": 4200,
-                "udp_port": 4201,
+                "tcp_port": os.environ.get("CONTROLLER_TCP_PORT"),
+                "udp_port": os.environ.get("CONTROLLER_UDP_PORT"),
                 "host_ip_addr": os.environ.get("CONTROLLER_SERVER_HOST"),
                 "ssid": os.environ.get("WIFI_SSID"),
                 "password": os.environ.get("WIFI_PASSWORD"),
@@ -163,6 +182,25 @@ class DatabaseManager:
             },
         )
         return config
+    
+
+    @staticmethod
+    def update_config(**kwargs):
+        current_config = DatabaseManager.get_default_config()
+
+        for key, value in kwargs.items():
+            if key in current_config._meta.fields:
+                setattr(current_config, key, value)
+
+        current_config.save()
+                
+
+    @staticmethod
+    def get_latest_data(self,num_values = 200):
+        return Data.select().order_by(Data.id.desc()).limit(num_values)
+
+
+
 
     @staticmethod
     def save_data_to_db(headers, body):

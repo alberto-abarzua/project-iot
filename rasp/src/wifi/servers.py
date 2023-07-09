@@ -158,7 +158,7 @@ class WifiServerCore:
             tzinfo=datetime.timezone.utc
         ).timestamp()
 
-        if self.transport_layer == "T":
+        if self.transport_layer == "T" or self.transport_layer == "K":
             self.server = TcpComunicationCore(self)
 
         elif self.transport_layer == "U":
@@ -246,11 +246,14 @@ class WifiServerCore:
         console.print("Server started", style="info")
         if self.transport_layer == "U":
             self.server.socket.settimeout(None)
+        if self.transport_layer == "K":
+            self.server.socket.settimeout(10)
+
         while True:
             self.handshake()
             if self.transport_layer == "U":
                 time.sleep(1)
-                self.server.socket.settimeout(self.server.timeout*2)
+                self.server.socket.settimeout(self.server.timeout*4)
 
             time.sleep(0.5)
 
@@ -258,4 +261,6 @@ class WifiServerCore:
             if self.transport_layer == "T":
                 self.server.close()
                 exit(1)
+
+            
            

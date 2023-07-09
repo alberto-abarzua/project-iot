@@ -121,11 +121,7 @@ void print_config(config_t config) {
     printf("Transport Layer: %c\n", config.trans_layer);
 }
 
-int check_diff_config(config_t *c1, config_t *c2) {
-    // TODO: check if there is a difference between the two configs, print the
-    // values that differ
-    return 1;
-}
+
 
 esp_err_t set_nvs_config(config_t config) {
     config_t current_config;
@@ -156,7 +152,6 @@ esp_err_t set_nvs_config(config_t config) {
     print_config(current_config);
     printf("New Config:\n");
     print_config(config);
-    check_diff_config(&current_config, &config);
     if (current_config.protocol_id != config.protocol_id ||
         current_config.status != config.status ||
         current_config.trans_layer != config.trans_layer
@@ -177,8 +172,8 @@ esp_err_t get_nvs_config(config_t *config) {
         config->protocol_id = DEFAULT_PROTOCOL_ID;
         config->trans_layer = DEFAULT_TRANSPORT_LAYER;
 
-        config->udp_port = CONFIG_PORT_UDP;
-        config->tcp_port = CONFIG_PORT_TCP;
+        config->udp_port = CONTROLLER_UDP_PORT;
+        config->tcp_port = CONTROLLER_TCP_PORT;
 
         memcpy(config->host_ip_addr, CONTROLLER_SERVER_HOST,
                strlen(CONTROLLER_SERVER_HOST));

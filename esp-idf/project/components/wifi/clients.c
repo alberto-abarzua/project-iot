@@ -28,7 +28,7 @@ int send_chunks_tcp(int sock, const char *buf, int size, int total) {
             sent += ret;
         }
         bytes_sent += sent;
-        //vtaskdelay
+        // vtaskdelay
         ESP_LOGI(TAG, "Sent %d bytes of %d", bytes_sent, total);
     }
 
@@ -102,20 +102,23 @@ void tcp_client(int protocol_id) {
 
     // Send packets to server
     while (1) {
+        if (current_config.trans_layer == 'K'){
+            vTaskDelay(pdMS_TO_TICKS(4000));
+        }
         err = send_pakcet_tcp(sock, protocol_id);
         if (err < 0) {
             ESP_LOGE(TAG, "Error occurred during sending: errno %s\n",
                      strerror(errno));
             break;
         }
-
-        ESP_LOGI(TAG, "Going to sleep");
-        esp_sleep_enable_timer_wakeup(
-            (long long)(current_config.discontinuous_time * 60 * 1e+6));
-        esp_deep_sleep_start();
+        if (current_config.trans_layer == 'T') {
+            ESP_LOGI(TAG, "Going to sleep");
+            esp_sleep_enable_timer_wakeup(
+                (long long)(current_config.discontinuous_time * 60 * 1e+6));
+            esp_deep_sleep_start();
+        }
     }
 
-    // Clean up socket
     if (sock != -1) {
         ESP_LOGE(TAG, "Shutting down socket and restarting...");
         shutdown(sock, 0);
@@ -134,7 +137,7 @@ void tcp_client(int protocol_id) {
 int send_chunks_udp(int sock, const char *buf, int size, int total,
                     struct sockaddr_in *addr) {
     if (size <= 0) {
-        return -1;  // Invalid chunk size
+        return -1;  
     }
     int bytes_sent = 0;
     while (bytes_sent < total) {
@@ -148,26 +151,23 @@ int send_chunks_udp(int sock, const char *buf, int size, int total,
         int ret = sendto(sock, chunk_ptr, chunk_size, 0,
                          (struct sockaddr *)addr, sizeof(*addr));
         if (ret < 0) {
-            return ret;  // Send error
+            return ret;  
         }
         bytes_sent += ret;
     }
 
-    return bytes_sent;  // Total bytes sent
+    return bytes_sent;  
 }
 
 int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id) {
-    // first create a packet of protocol 1
     int size_to_send = 0;
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
     char *first_buffer = create_packet(1, &size_to_send, 'U');
     if (first_buffer == NULL) return -1;
-    // send it
     ESP_LOGI(TAG, "Sending packet of size %d", size_to_send);
     int err = send_chunks_udp(sock, first_buffer, 1024, size_to_send, in_addr);
     free(first_buffer);
-    // get response
     char *rx_buffer = (char *)malloc(1024);
     ESP_LOGI(TAG, "Waiting for CONFIG");
     struct timeval timeout;
@@ -189,12 +189,10 @@ int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id) {
         return -1;
     }
     ESP_LOGI(TAG, "Received %d bytes from %s:", len, inet_ntoa(addr.sin_addr));
-    // parse config
 
     config_t config;
     parse_config(rx_buffer, &config);
 
-    // store config
     set_nvs_config(config);
     free(rx_buffer);
     ESP_LOGI(TAG, "CONFIG Received, SENDING PACKET OF PROTOCOL %d",
@@ -202,7 +200,6 @@ int send_pakcet_udp(int sock, struct sockaddr_in *in_addr, int protocol_id) {
     char *buffer = create_packet(protocol_id, &size_to_send, 'U');
     if (buffer == NULL) return -1;
     ESP_LOGI(TAG, "Sending packet of size %d", size_to_send);
-    // log address and port
     ESP_LOGI(TAG, "Sending to %s:%d", inet_ntoa(in_addr->sin_addr),
              ntohs(in_addr->sin_port));
     err = send_chunks_udp(sock, buffer, 1024, size_to_send, in_addr);
@@ -215,11 +212,10 @@ void udp_client(int protocol_id) {
     config_t current_config;
     get_nvs_config(&current_config);
 
-    ESP_LOGI(TAG, "UDP Client Started ON %d", UDP_PORT);
     struct sockaddr_in dest_addr;
     inet_pton(AF_INET, current_config.host_ip_addr, &dest_addr.sin_addr);
     dest_addr.sin_family = AF_INET;
-    dest_addr.sin_port = htons(UDP_PORT);
+    dest_addr.sin_port = htons(current_config.udp_port);
     dest_addr.sin_addr.s_addr = inet_addr(current_config.host_ip_addr);
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 
@@ -229,15 +225,13 @@ void udp_client(int protocol_id) {
     }
 
     ESP_LOGI(TAG, "Socket created, sending to %s:%d",
-             current_config.host_ip_addr, UDP_PORT);
+             current_config.host_ip_addr, current_config.udp_port);
 
     ESP_LOGI(TAG, "Successfully connected");
 
-    // Send and Recevie message to and from server
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(6000));  // delay for 1 seconds
+        vTaskDelay(pdMS_TO_TICKS(4000));  
         int err = send_pakcet_udp(sock, &dest_addr, protocol_id);
-        // int err = send(sock, payload, strlen(payload), 0);
         if (err < 0) {
             ESP_LOGE(TAG, "Error occurred during sending: errno %s\n",
                      strerror(errno));
@@ -273,10 +267,10 @@ void main_wifi(void) {
         config_t config;
         get_nvs_config(&config);
 
-        if (config.trans_layer == 'U') {
-            udp_client(config.protocol_id);
-        } else {
+        if (config.trans_layer == 'T' || config.trans_layer == 'K') {
             tcp_client(config.protocol_id);
+        } else {
+            udp_client(config.protocol_id);
         }
     }
 }

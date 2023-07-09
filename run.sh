@@ -32,6 +32,14 @@ dev)
     pdm install
     pdm run src/main.py
     ;;
+
+devgui)
+    # startup &
+    echo "Running all services in dev mode"
+    cd ./rasp/
+    pdm install
+    pdm run src/gui.py
+    ;;
 run)
     docker-compose up -d
     cd ./rasp/

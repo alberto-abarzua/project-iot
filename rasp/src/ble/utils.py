@@ -309,9 +309,9 @@ class ConnectedState(DeviceState):
         context.ble_core.subscribe(self.notify_callback)
         while True:
             while True:
-                with console.status("[dim medium_orchid1]Waiting for data...", spinner="dots"):
-                    context.ble_core.subscribe(self.notify_callback)
-                    time.sleep(2)
+                console.log("Waiting for data ...", style="info")
+                context.ble_core.subscribe(self.notify_callback)
+                time.sleep(2)
                 if self.data_available:
                     break
             if self.data_available:
@@ -412,12 +412,12 @@ class StatelessBleManager:
                 self.read_data = ReadData(self)
 
                 while True:
-                    with console.status("[dim medium_orchid1]Waiting for data...", spinner="dots"):
-                        self.ble_core.subscribe(self.notify_callback)
-                        time.sleep(2)
-                    
-                        if self.data_available:
-                            break
+                    console.log("Waiting for data ...", style="info")
+                    self.ble_core.subscribe(self.notify_callback)
+                    time.sleep(2)
+                
+                    if self.data_available:
+                        break
                     
                 if self.data_available:
                     current_config = DatabaseManager.get_default_config()
@@ -440,7 +440,8 @@ class StatelessBleManager:
 
 
 class BleManager:
-    def __init__(self, device_name, characteristic_uuid, device_mac, transport_layer):
+    def __init__(self, device_name, characteristic_uuid, device_mac):
+        config = DatabaseManager.get_default_config()
         self.state = DisconnectedState()
         self.device_name = device_name
         self.characteristic_uuid = characteristic_uuid
@@ -450,6 +451,7 @@ class BleManager:
             self.ble_core = BleakCore(self.device_mac, self.characteristic_uuid)
         else:
             self.ble_core = PygattCore(self.device_mac, self.characteristic_uuid)
+        transport_layer = config.transport_layer
         self.transport_layer = transport_layer
         self.use_states = os.environ.get("BLE_USE_STATES", "True").upper() == "TRUE"
         mode_verbose = "BLE continious" if self.transport_layer == "C" else "BLE discontinious"

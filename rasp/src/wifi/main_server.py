@@ -3,8 +3,10 @@ from wifi.servers import WifiServerCore
 
 
 class WifiServer:
-    def run(self, *args, **kwargs):
-        wifi_server = WifiServerCore(*args, **kwargs)
+    def run(self,join = True):
+        wifi_server = WifiServerCore()
         server = run_server_on_thread(wifi_server.run)
-        server.join()
-        print("Server finished")
+        if join:
+            server.join()
+        else:
+            return server

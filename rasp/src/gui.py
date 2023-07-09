@@ -11,7 +11,33 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from utils.models import DatabaseManager
+from utils.prints import console
+from bleak import BleakScanner
+import asyncio
+import time
+import threading
+import struct
+from ble.main_client import BleClient
+from utils.models import DatabaseManager
+from wifi.main_server import WifiServer
 
+
+transport_layer_options = {
+    "TCP continuous": 'K',
+    "TCP discontinuous":'T',
+    "UDP":'U',
+    "BLE continuous":'C',
+    "BLE discontinuous":'D',
+}
+
+reverse_transport_layer_options = {
+    'K':"TCP continuous",
+    'T':"TCP discontinuous",
+    'U':"UDP",
+    'C':"BLE continuous",
+    'D':"BLE discontinuous",
+}
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -106,7 +132,7 @@ class Ui_Dialog(object):
         self.gridLayout_9 = QtWidgets.QGridLayout(self.groupBox_4)
         self.gridLayout_9.setObjectName("gridLayout_9")
         self.progress_bar = QtWidgets.QProgressBar(self.groupBox_4)
-        self.progress_bar.setProperty("value", 24)
+        self.progress_bar.setProperty("value", 0)
         self.progress_bar.setObjectName("progress_bar")
         self.gridLayout_9.addWidget(self.progress_bar, 11, 1, 1, 2)
         self.groupBox_6 = QtWidgets.QGroupBox(self.groupBox_4)
@@ -153,11 +179,11 @@ class Ui_Dialog(object):
         self.protocol_id_select.addItem("")
         self.protocol_id_select.addItem("")
         self.gridLayout_9.addWidget(self.protocol_id_select, 1, 2, 1, 1)
-        self.disconnect_button = QtWidgets.QPushButton(self.groupBox_4)
-        self.disconnect_button.setStyleSheet("background-color: rgb(103, 8, 8);\n"
-                                             "color: rgb(255, 255, 255);")
-        self.disconnect_button.setObjectName("disconnect_button")
-        self.gridLayout_9.addWidget(self.disconnect_button, 10, 1, 1, 2)
+        # self.disconnect_button = QtWidgets.QPushButton(self.groupBox_4)
+        # self.disconnect_button.setStyleSheet("background-color: rgb(103, 8, 8);\n"
+        #                                      "color: rgb(255, 255, 255);")
+        # self.disconnect_button.setObjectName("disconnect_button")
+        # self.gridLayout_9.addWidget(self.disconnect_button, 10, 1, 1, 2)
         self.groupBox_9 = QtWidgets.QGroupBox(self.groupBox_4)
         self.groupBox_9.setObjectName("groupBox_9")
         self.gridLayout_11 = QtWidgets.QGridLayout(self.groupBox_9)
@@ -176,7 +202,7 @@ class Ui_Dialog(object):
         self.groupBox_10.setObjectName("groupBox_10")
         self.gridLayout_12 = QtWidgets.QGridLayout(self.groupBox_10)
         self.gridLayout_12.setObjectName("gridLayout_12")
-        self.console_output = QtWidgets.QWidget(self.groupBox_10)
+        self.console_output = QtWidgets.QTextBrowser(self.groupBox_10)
         self.console_output.setObjectName("console_output")
         self.gridLayout_12.addWidget(self.console_output, 0, 0, 1, 1)
         self.groupBox_10.raise_()
@@ -277,38 +303,20 @@ class Ui_Dialog(object):
         self.transport_layer_select.setItemText(0, _translate("Dialog", "TCP continuous"))
         self.transport_layer_select.setItemText(1, _translate("Dialog", "TCP discontinuous"))
         self.transport_layer_select.setItemText(2, _translate("Dialog", "UDP"))
-        self.transport_layer_select.setItemText(3, _translate("Dialog", "BLE continuous "))
+        self.transport_layer_select.setItemText(3, _translate("Dialog", "BLE continuous"))
         self.transport_layer_select.setItemText(4, _translate("Dialog", "BLE discontinuous"))
         self.protocol_id_select.setItemText(0, _translate("Dialog", "1"))
         self.protocol_id_select.setItemText(1, _translate("Dialog", "2"))
         self.protocol_id_select.setItemText(2, _translate("Dialog", "3"))
         self.protocol_id_select.setItemText(3, _translate("Dialog", "4"))
         self.protocol_id_select.setItemText(4, _translate("Dialog", "5"))
-        self.disconnect_button.setText(_translate("Dialog", "Disconnect"))
+        # self.disconnect_button.setText(_translate("Dialog", "Disconnect"))
         self.groupBox_9.setTitle(_translate("Dialog", "WIFI"))
         self.start_wifi_server_button.setText(_translate("Dialog", "Start Wi-Fi Server"))
         self.groupBox_10.setTitle(_translate("Dialog", "Console"))
         self.Pestana_principal.setTabText(self.Pestana_principal.indexOf(
             self.tab), _translate("Dialog", "Config and Connection"))
         self.groupBox_5.setTitle(_translate("Dialog", "Data"))
-        # self.plot1_select.setItemText(0, _translate("Dialog", "Temperatura"))
-        # self.plot1_select.setItemText(1, _translate("Dialog", "humedad"))
-        # self.plot1_select.setItemText(2, _translate("Dialog", "Acc_x"))
-        # self.plot1_select.setItemText(3, _translate("Dialog", "Acc_y"))
-        # self.plot1_select.setItemText(4, _translate("Dialog", "Acc_z"))
-        # self.plot1_select.setItemText(5, _translate("Dialog", "RMS"))
-        # self.plot2_select.setItemText(0, _translate("Dialog", "Temperatura"))
-        # self.plot2_select.setItemText(1, _translate("Dialog", "humedad"))
-        # self.plot2_select.setItemText(2, _translate("Dialog", "Acc_x"))
-        # self.plot2_select.setItemText(3, _translate("Dialog", "Acc_y"))
-        # self.plot2_select.setItemText(4, _translate("Dialog", "Acc_z"))
-        # self.plot2_select.setItemText(5, _translate("Dialog", "RMS"))
-        # self.plot3_select.setItemText(0, _translate("Dialog", "Temperatura"))
-        # self.plot3_select.setItemText(1, _translate("Dialog", "humedad"))
-        # self.plot3_select.setItemText(2, _translate("Dialog", "Acc_x"))
-        # self.plot3_select.setItemText(3, _translate("Dialog", "Acc_y"))
-        # self.plot3_select.setItemText(4, _translate("Dialog", "Acc_z"))
-        # self.plot3_select.setItemText(5, _translate("Dialog", "RMS"))
         self.Pestana_principal.setTabText(self.Pestana_principal.indexOf(
             self.tab_2), _translate("Dialog", "Data"))
 
@@ -319,7 +327,8 @@ class App(QtWidgets.QDialog):
         super().__init__()
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
-
+        DatabaseManager.db_init()
+        self.ui.console_output.setStyleSheet("background-color: #2b2b2b;")
         self.data_sources = {
             "Temperatura": [],
             "Humedad": [],
@@ -327,10 +336,7 @@ class App(QtWidgets.QDialog):
             "Acc_y": [],
             "Acc_z": [],
         }
-        # random values for now
-        for data,source in self.data_sources.items():
-            for i in range(100):
-                source.append(i)
+   
 
 
         self.plots = [
@@ -364,38 +370,217 @@ class App(QtWidgets.QDialog):
 
         self.update_graphs()
 
+        # self.gyro_sens_text = QtWidgets.QTextEdit(self.groupBox_2)
+        # add function on change
+        self.populate_config_text()
+        
+        self.config_components_text = [
+            self.ui.acc_sampl_text,
+            self.ui.acc_sens_text,
+            self.ui.gyro_sens_text,
+            self.ui.bme_sampling_text,
+            self.ui.disc_time_text,
+            self.ui.host_ip_text,
+            self.ui.tcp_port_text,
+            self.ui.udp_port_text,
+            self.ui.password_text,
+            self.ui.text_ssid,
+        ]
 
+        self.config_components_combo = [
+            self.ui.transport_layer_select,
+            self.ui.protocol_id_select,
+        ]
+        for component in self.config_components_text:
+            component.textChanged.connect(self.on_change_config)
+
+        for component in self.config_components_combo:
+            component.currentIndexChanged.connect(self.on_change_config)
+            
+        self.worker = self.GraphUpdateWorker(self.update)
+        self.ble_list = []
+        self.run_ble_scanner()
+        self.ui.start_ble_button.clicked.connect(self.run_ble_service)
+        self.ui.start_wifi_server_button.clicked.connect(self.run_wifi_service)
+        self.current_service_thread = None
+
+        
+
+
+    
     class GraphUpdateWorker(QtCore.QObject): 
-        def __init__(self, target_function):
-            super().__init__()
+        def __init__(self, target_function, parent=None):
+            super().__init__(parent)
             self.target_function = target_function
+            self.timer = QtCore.QTimer()
+            self.timer.timeout.connect(self.run)
+            self.timer.start(1)  
 
         def run(self):
-            while True:
-                self.target_function()
-
-    def start_get_data_thread(self):
-        self.thread = QtCore.QThread()
-        self.worker = self.GraphUpdateWorker(self.update_graphs)
-        self.worker.moveToThread(self.thread)
-        self.thread.started.connect(self.worker.run)
-        self.thread.start()
+            self.target_function()
 
 
-    def on_change_config_text(self):
-        pass
-        # TODO: UPDATE CONFIG MODEL WITH TEXT VALUES
+
+    def load_progress(self):
+        for i in range(101):
+            time.sleep(0.05)
+            self.ui.progress_bar.setValue(i)
+
+    def run_ble_service(self):
+
+        self.current_service_thread = BleClient(self.current_ble_addr).run(join = False)
+        self.load_progress()
+
+
+    def run_wifi_service(self):
+
+        self.current_service_thread = WifiServer().run(join = False)
+        self.load_progress()
+    
+    def disconnect(self):
+        if self.current_service_thread is not None:
+            self.current_service_thread.terminate()
+            self.current_service_thread = None
+            console.print("Disconnected", style="info")
+
+    def on_change_config(self):        
+        transport_layer = transport_layer_options[self.ui.transport_layer_select.currentText()]
+        protocol_id = self.ui.protocol_id_select.currentText()
+        
+        DatabaseManager.update_config(bmi270_gyro_sensibility = int(self.ui.gyro_sens_text.toPlainText()),
+                                      bmi270_sampling = int(self.ui.acc_sampl_text.toPlainText()),
+                                      bme688_sampling = int(self.ui.bme_sampling_text.toPlainText()),
+                                      discontinuous_time = int(self.ui.disc_time_text.toPlainText()),
+                                      bmi270_sensibility = int(self.ui.acc_sens_text.toPlainText()),
+                                      host_ip_addr = str(self.ui.host_ip_text.toPlainText()),
+                                      tcp_port = str(self.ui.tcp_port_text.toPlainText()),
+                                      udp_port = str(self.ui.udp_port_text.toPlainText()),
+                                      password = str(self.ui.password_text.toPlainText()),
+                                      ssid = str(self.ui.text_ssid.toPlainText()),                                      
+                                      transport_layer = str(transport_layer),
+                                      protocol_id = str(protocol_id)
+                                    )
+        
+                
+        console.print("Config Updated", style="info")
+        console.print(DatabaseManager.get_default_config(), style="info")
+
 
     def populate_config_text(self):
-        pass
-        # TODO: UPDATE CONFIG TEXT WITH MODEL VALUES
+        cur_config = DatabaseManager.get_default_config()
+        
+        self.ui.gyro_sens_text.setText(str(cur_config.bmi270_gyro_sensibility))
+        self.ui.acc_sampl_text.setText(str(cur_config.bmi270_sampling))
+        self.ui.bme_sampling_text.setText(str(cur_config.bme688_sampling))
+        self.ui.disc_time_text.setText(str(cur_config.discontinuous_time))
+        self.ui.acc_sens_text.setText(str(cur_config.bmi270_sensibility))
+        self.ui.host_ip_text.setText(str(cur_config.host_ip_addr))
+        self.ui.tcp_port_text.setText(str(cur_config.tcp_port))
+        self.ui.udp_port_text.setText(str(cur_config.udp_port))
+        self.ui.password_text.setText(str(cur_config.password))
+        
 
-    def update_console(self, text):
-        pass
-        # TODO: UPDATE CONSOLE WITH TEXT, KEEP SCROLL AT BOTTOM
+        current_transport_layer_select_option = reverse_transport_layer_options[cur_config.transport_layer]
+        current_protocol_id_select_option = cur_config.protocol_id
 
+        self.ui.protocol_id_select.setCurrentText(str(current_protocol_id_select_option))
+        self.ui.transport_layer_select.setCurrentText(str(current_transport_layer_select_option))        
+
+
+        self.ui.text_ssid.setText(str(cur_config.ssid))
+
+    
+    @property
+    def current_ble_addr(self):
+        return self.ble_list[self.ui.esp_ble_select.currentIndex()][1]
+
+
+
+    def scan_ble_devices(self):
+        devices = asyncio.run(self.discover())
+        devices_list = [(device.name, device.address) for device in devices]
+        return devices_list
+    
+    def _update_ble_list(self):
+        
+        while True:
+            self.ble_list = self.scan_ble_devices()
+            time.sleep(15)
+    
+    def run_ble_scanner(self):
+        thread = threading.Thread(target=self._update_ble_list)
+        thread.daemon = True
+        thread.start()         
+    
+    def update_ble_select(self):
+        self.ui.esp_ble_select.clear()
+        for device in self.ble_list:
+            text = f"{device[0]} - {device[1]}"
+            self.ui.esp_ble_select.addItem(text)
+
+    async def discover(self):
+        scanner = BleakScanner()
+        devices = await scanner.discover()
+        return devices
+
+    def update_console(self):
+        current_output_html = console.export_html(clear = False )
+        self.ui.console_output.setHtml(current_output_html)
+        self.ui.console_output.moveCursor(QtGui.QTextCursor.End)
+
+    def update_data_sources(self):
+
+
+        # read the current selection for plot combo box
+        # update plots data sources
+        for plot in self.plots:
+            select = plot["select"]
+            plot["data"] = select.currentText()
+        
+
+
+
+        latest_data = DatabaseManager.get_latest_data(200)
+       
+        for _,source in self.data_sources.items():
+            source.clear()
+
+        for entry in latest_data:
+            if entry.temp is not None:
+                self.data_sources["Temperatura"].append(int(entry.temp))
+
+            if entry.hum is not None:
+                self.data_sources["Humedad"].append(int(entry.hum))
+            
+            if entry.ACC_X is not None:
+                acc_x_blob = entry.ACC_X
+                acc_y_blob = entry.ACC_Y
+                acc_z_blob = entry.ACC_Z
+
+                acc_x = struct.unpack('f', acc_x_blob[:4])[0]
+                acc_y = struct.unpack('f', acc_y_blob[:4])[0]
+                acc_z = struct.unpack('f', acc_z_blob[:4])[0]
+                            
+                self.data_sources["Acc_x"].append(acc_x)
+                self.data_sources["Acc_y"].append(acc_y)
+                self.data_sources["Acc_z"].append(acc_z)
+            
+
+        #print data sources
+        for key,source in self.data_sources.items():
+            print(key,source)
+        
+        # append every elemnt of every row to the corresponding data source
+            
+
+    def update(self):
+        self.update_console()
+        self.update_data_sources()
+        self.update_graphs()
+        # 
+        self.update_ble_select()
+    
     def update_graphs(self):
-        self.update_data_sources() 
         for plot in self.plots:
             plot["figure"].clear()
             axes = plot["figure"].add_subplot(111)
@@ -406,9 +591,6 @@ class App(QtWidgets.QDialog):
             axes.set_title(plot["data"])
             plot["canvas"].draw()
 
-    def update_data_sources(self):
-        pass
-        # TODO: UPDATE DATA FROM MODEL  
 
 
 if __name__ == "__main__":
