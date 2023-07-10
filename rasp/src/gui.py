@@ -142,12 +142,20 @@ class Ui_Dialog(object):
         self.esp_ble_select = QtWidgets.QComboBox(self.groupBox_6)
         self.esp_ble_select.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.esp_ble_select.setObjectName("esp_ble_select")
-        self.gridLayout_10.addWidget(self.esp_ble_select, 0, 0, 1, 1)
+        self.gridLayout_10.addWidget(self.esp_ble_select, 0, 0, 1, 2)
         self.start_ble_button = QtWidgets.QPushButton(self.groupBox_6)
         self.start_ble_button.setStyleSheet("background-color: rgb(5, 5, 203);\n"
                                             "color: rgb(255, 255, 255);")
         self.start_ble_button.setObjectName("start_ble_button")
-        self.gridLayout_10.addWidget(self.start_ble_button, 0, 1, 1, 1)
+
+        self.esp_ble_scan_button = QtWidgets.QPushButton(self.groupBox_6)
+        self.esp_ble_scan_button.setStyleSheet("background-color: rgb(5, 5, 203);\n"
+                                            "color: rgb(255, 255, 255);")
+        self.esp_ble_scan_button.setObjectName("esp_ble_scan_button")
+
+        self.gridLayout_10.addWidget(self.esp_ble_scan_button, 0, 2, 1, 1)
+        self.gridLayout_10.addWidget(self.start_ble_button,  1, 0, 1, 3)
+
         self.gridLayout_9.addWidget(self.groupBox_6, 2, 1, 2, 2)
         self.label_29 = QtWidgets.QLabel(self.groupBox_4)
         self.label_29.setStyleSheet("color: rgb(0, 0, 0);\n"
@@ -298,6 +306,7 @@ class Ui_Dialog(object):
         self.groupBox_4.setTitle(_translate("Dialog", "Connection"))
         self.groupBox_6.setTitle(_translate("Dialog", "BLE"))
         self.start_ble_button.setText(_translate("Dialog", "Configure via BLE"))
+        self.esp_ble_scan_button.setText(_translate("Dialog", "Scan"))
         self.label_29.setText(_translate("Dialog", "Transport Layer"))
         self.label_30.setText(_translate("Dialog", "Protocol ID"))
         self.transport_layer_select.setItemText(0, _translate("Dialog", "TCP continuous"))
@@ -399,7 +408,6 @@ class App(QtWidgets.QDialog):
             
         self.worker = self.GraphUpdateWorker(self.update)
         self.ble_list = []
-        self.run_ble_scanner()
         self.ui.start_ble_button.clicked.connect(self.run_ble_service)
         self.ui.start_wifi_server_button.clicked.connect(self.run_wifi_service)
         self.current_service_thread = None
@@ -489,6 +497,7 @@ class App(QtWidgets.QDialog):
 
         self.ui.text_ssid.setText(str(cur_config.ssid))
 
+        self.ui.esp_ble_scan_button.clicked.connect(self.update_ble_list)
     
     @property
     def current_ble_addr(self):
@@ -496,21 +505,12 @@ class App(QtWidgets.QDialog):
 
 
 
-    def scan_ble_devices(self):
+    def update_ble_list(self):
         devices = asyncio.run(self.discover())
         devices_list = [(device.name, device.address) for device in devices]
-        return devices_list
+        self.ble_list = devices_list
+        self.update_ble_select()
     
-    def _update_ble_list(self):
-        
-        while True:
-            self.ble_list = self.scan_ble_devices()
-            time.sleep(15)
-    
-    def run_ble_scanner(self):
-        thread = threading.Thread(target=self._update_ble_list)
-        thread.daemon = True
-        thread.start()         
     
     def update_ble_select(self):
         self.ui.esp_ble_select.clear()
@@ -577,8 +577,6 @@ class App(QtWidgets.QDialog):
         self.update_console()
         self.update_data_sources()
         self.update_graphs()
-        # 
-        self.update_ble_select()
     
     def update_graphs(self):
         for plot in self.plots:
