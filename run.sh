@@ -52,11 +52,9 @@ rungui_rasp)
     docker compose up -d
     cd ./rasp/
     # create venv
-    python3 -m venv venv
     # activate venv
     ./venv/bin/activate
-    pip install -r requirements.txt
-    python3 src/gui.py
+    python ./src/gui.py
 
     docker compose down --remove-orphans
     ;;
