@@ -48,8 +48,11 @@ run)
     docker-compose down --remove-orphans
     ;;
 
-rungui_rasp)
+setup_gui_rasp)
     docker compose up -d
+    ;;
+
+rungui_rasp)
     cd ./rasp/
     # create venv
     # activate venv
