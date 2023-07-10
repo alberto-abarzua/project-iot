@@ -41,7 +41,7 @@ devgui)
     pdm run src/gui.py
     ;;
 run)
-    docker-compose up -d
+    docker compose up -d
     cd ./rasp/
     pdm install
     pdm run src/main.py
@@ -49,7 +49,7 @@ run)
     ;;
 
 rungui_rasp)
-    docker-compose up -d
+    docker compose up -d
     cd ./rasp/
     # create venv
     python3 -m venv venv
@@ -57,8 +57,8 @@ rungui_rasp)
     ./venv/bin/activate
     pip install -r requirements.txt
     python3 src/gui.py
-    
-    docker-compose down --remove-orphans
+
+    docker compose down --remove-orphans
     ;;
 *)
     echo "Usage: $0 {idf|dev|run}"
