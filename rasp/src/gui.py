@@ -567,8 +567,7 @@ class App(QtWidgets.QDialog):
             
 
         #print data sources
-        for key,source in self.data_sources.items():
-            print(key,source)
+
         
         # append every elemnt of every row to the corresponding data source
             
