@@ -250,7 +250,7 @@ class Connecting:
 
     def run(self):
         self.context.state = self
-        console.print(f"Connecting to device, attempt #[{self.context.tries}] ...",style = "warning")
+        console.print(f"Connecting to device on addr {self.context.device_mac}, attempt #[{self.context.tries}] ...",style = "warning")
 
         try:
             self.context.ble_core.connect()
