@@ -53,7 +53,7 @@ rungui_rasp)
     cd ./rasp/
     # create venv
     # activate venv
-    ./venv/bin/activate
+    source ./venv/bin/activate
     python ./src/gui.py
 
     docker compose down --remove-orphans
