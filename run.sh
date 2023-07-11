@@ -3,56 +3,66 @@
 # Load the .env file
 export $(grep -v '^#' .env | xargs)
 
-# Function to clean up on exit
-cleanup() {
-    echo "Cleaning up..."
-    kill $DC_PID
-
-    docker compose down --remove-orphans --timeout 5
+get_ip() {
+    echo $(hostname -I | awk '{print $1}')
 }
 
-startup() {
-    docker compose down --remove-orphans
+init_idf() {
+    echo "Running config"
+    cd ./esp-idf/project/
+    echo "Requires idf.py to be installed and environment variables to be set"
+    if [ -z "$IDF_PATH" ]; then
+        echo "IDF_PATH is not set"
+        exit 1
+    fi
 }
 
-
-
-
-
+export CONTROLLER_SERVER_HOST=$(get_ip)
 
 case "$1" in
 idf)
-    echo "Running config"
-    cd ./esp-idf/project/
-    . $HOME/esp/esp-idf/export.sh
-    # if second arg is menuconfig
-    if [ "$2" = "menuconfig" ]; then
-        if [ ! -f ./sdkconfig ]; then
-            echo "sdkconfig not found, generating..."
-            python3 ../generate_kconfig.py
-        fi
-        idf.py menuconfig
-
-    else
-        idf.py ${@:2}
-    fi
+    init_idf
+    shift
+    idf.py "$@"
     ;;
 dev)
     # startup &
     echo "Running all services in dev mode"
-    # trap cleanup INT
-    # docker compose up --build &
-    # cd ./esp-idf/project/ 
-    # . $HOME/esp/esp-idf/export.sh
-    # idf.py build flash monitor &
-    # DC_PID=$!
-    # cd ./../../
     cd ./rasp/
     pdm install
     pdm run src/main.py
-    # cleanup &
-
     ;;
 
-esac
+devgui)
+    # startup &
+    echo "Running all services in dev mode"
+    cd ./rasp/
+    pdm install
+    pdm run src/gui.py
+    ;;
+run)
+    docker compose up -d
+    cd ./rasp/
+    pdm install
+    pdm run src/main.py
+    docker-compose down --remove-orphans
+    ;;
 
+setup_gui_rasp)
+    docker compose up -d
+    ;;
+
+rungui_rasp)
+    cd ./rasp/
+    # create venv
+    # activate venv
+    source ./venv/bin/activate
+    python ./src/gui.py
+
+    docker compose down --remove-orphans
+    ;;
+*)
+    echo "Usage: $0 {idf|dev|run}"
+    exit 1
+    ;;
+esac

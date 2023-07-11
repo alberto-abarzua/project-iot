@@ -3,10 +3,11 @@ from rich.theme import Theme
 
 custom_theme = Theme(
     {
-        "info": "dim green_yellow",
+        "info": "dim green",
         "important": "bold green",
         "warning": "magenta",
         "danger": "bold red",
+        "error" : "bold red",
         "light_info": "dim white",
         "note": "bold blue",
         "setup": "bold dodger_blue1",
@@ -14,4 +15,6 @@ custom_theme = Theme(
 )
 
 
-console = Console(theme=custom_theme)
+console = Console(theme=custom_theme,record = True)
+
+

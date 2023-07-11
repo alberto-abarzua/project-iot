@@ -11,6 +11,8 @@
 
 #include "sdkconfig.h"
 #include "esp_err.h"
+#include "utils.h"
+
 #if !CONFIG_IDF_TARGET_LINUX
 #include "esp_netif.h"
 #if CONFIG_EXAMPLE_CONNECT_ETHERNET

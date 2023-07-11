@@ -384,7 +384,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
             // SET CURRENT TIMESTAMP
             int32_t timestamp = get_timestamp_from_custom_epoch();
             // set timestamp in value_ptr on
-            uint16_t pos_to_write = sizeof(hd_01234_t) + 2 * sizeof(char);
+            uint16_t pos_to_write = sizeof(hd_12345_t) + 1 * sizeof(char);
             memcpy(value_ptr + pos_to_write, &timestamp, sizeof(int32_t));
             rsp.attr_value.len = value_length;  // Set length to string length
             memcpy(rsp.attr_value.value, value_ptr,
@@ -466,9 +466,11 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                 get_nvs_config(&cur_config);
 
                 config_t config;
-                config.trans_layer = param->write.value[3];
-                config.protocol_id = param->write.value[4];
+
+                parse_config((char *)param->write.value, &config);
+                //TODO: parse_config(char* buffer, config_t *config)
                 set_nvs_config(config);
+
                 vTaskDelay(500 / portTICK_PERIOD_MS);
                 // PRINT CONFIGS
                 ESP_LOGI(GATTS_TAG,
@@ -479,11 +481,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event,
                          "cur_config.trans_layer %c cur_config.protocol_id %d",
                          cur_config.trans_layer, cur_config.protocol_id);
 
-                if (config.protocol_id != cur_config.protocol_id ||
-                    config.trans_layer != cur_config.trans_layer) {
-                    ESP_LOGI(GATTS_TAG, "Restarting ESP");
-                    esp_restart();
-                }
+               
             }
             example_write_event_env(gatts_if, &a_prepare_write_env, param);
             break;
@@ -726,7 +724,7 @@ void dis_cont_mode_loop() {
         if (gl_profile_tab[PROFILE_A_APP_ID].conn_id != 0xFF || ret == ESP_OK) {
             ESP_LOGI(GATTS_TAG, "Going to sleep");
             esp_sleep_enable_timer_wakeup(
-                (long long)(BLE_DISC_TIMEOUT_SEC * 1e+6));
+                (long long)(config.discontinuous_time *60* 1e+6));
             esp_deep_sleep_start();
         }
     }

@@ -19,7 +19,7 @@
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-static const char *TAG = "example_common";
+static const char *TAG_C = "example_common";
 
 #if CONFIG_EXAMPLE_CONNECT_IPV6
 /* types of ipv6 addresses to be displayed on ipv6 events */
@@ -35,7 +35,7 @@ const char *example_ipv6_addr_types_to_str[6] = {
 
 /**
  * @brief Checks the netif description if it contains specified prefix.
- * All netifs created withing common connect component are prefixed with the module TAG,
+ * All netifs created withing common connect component are prefixed with the module TAG_C,
  * so it returns true if the specified netif is owned by this module
  */
 bool example_is_our_netif(const char *prefix, esp_netif_t *netif)
@@ -61,19 +61,19 @@ void example_print_all_netif_ips(const char *prefix)
     for (int i = 0; i < esp_netif_get_nr_of_ifs(); ++i) {
         netif = esp_netif_next(netif);
         if (example_is_our_netif(prefix, netif)) {
-            ESP_LOGI(TAG, "Connected to %s", esp_netif_get_desc(netif));
+            ESP_LOGI(TAG_C, "Connected to %s", esp_netif_get_desc(netif));
 #if CONFIG_LWIP_IPV4
             esp_netif_ip_info_t ip;
             ESP_ERROR_CHECK(esp_netif_get_ip_info(netif, &ip));
 
-            ESP_LOGI(TAG, "- IPv4 address: " IPSTR ",", IP2STR(&ip.ip));
+            ESP_LOGI(TAG_C, "- IPv4 address: " IPSTR ",", IP2STR(&ip.ip));
 #endif
 #if CONFIG_EXAMPLE_CONNECT_IPV6
             esp_ip6_addr_t ip6[MAX_IP6_ADDRS_PER_NETIF];
             int ip6_addrs = esp_netif_get_all_ip6(netif, ip6);
             for (int j = 0; j < ip6_addrs; ++j) {
                 esp_ip6_addr_type_t ipv6_type = esp_netif_ip6_get_addr_type(&(ip6[j]));
-                ESP_LOGI(TAG, "- IPv6 address: " IPV6STR ", type: %s", IPV62STR(ip6[j]), example_ipv6_addr_types_to_str[ipv6_type]);
+                ESP_LOGI(TAG_C, "- IPv6 address: " IPV6STR ", type: %s", IPV62STR(ip6[j]), example_ipv6_addr_types_to_str[ipv6_type]);
             }
 #endif
         }

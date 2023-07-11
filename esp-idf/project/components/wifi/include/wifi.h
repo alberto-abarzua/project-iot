@@ -22,17 +22,6 @@
 #include "sdkconfig.h"
 #include "utils.h"
 
-#define HOST_IP_ADDR CONFIG_IPV4_ADDR
-#define TCP_PORT CONFIG_PORT_TCP
-#define UDP_PORT CONFIG_PORT_UDP
-#define HANDSHAKE_PORT CONFIG_PORT_HANDSHAKE
-#define TCP_TIMEOUT CONFIG_TCP_TIMEOUT
-#define UDP_TIMEOUT CONFIG_UDP_TIMEOUT
-#define TAG "ESP_32"
-
-
-
-// Functions
 
 
 void tcp_client(int protocol_id);
